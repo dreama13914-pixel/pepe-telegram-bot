@@ -1,4 +1,3 @@
-import re
 import os
 from datetime import datetime
 import pytz 
@@ -8,22 +7,16 @@ from telegram.ext import (
     CallbackQueryHandler, ContextTypes, filters, ConversationHandler
 )
 
-# ==========================================
-# ⚙️ CONFIGURATION
-# ==========================================
-TOKEN = os.getenv("8769310147:AAH8SEo9Mdox6Z55sN1_QRfr0MHAYgML6Ac") 
+# Render reads this key automatically
+TOKEN = os.getenv("BOT_TOKEN") 
 
-# 🛠️ CHANGE THESE VALUES TO YOUR OWN:
-ADMIN_ID = 7488034821           # 👈 Replace with your real Telegram User ID
-KPAY_NUMBER = "09401878226"     # 👈 Replace with your Kpay Phone Number
-KPAY_NAME = "Li Li Naing"       # 👈 Replace with your Kpay Account Name
-
-WAVE_NUMBER = "09401878226"     # 👈 Put your Wave Pay Phone Number here
-WAVE_NAME = "Li Li Naing"       # 👈 Put your Wave Pay Account Name here
-
+ADMIN_ID = 7488034821           
+KPAY_NUMBER = "09401878226"     
+KPAY_NAME = "Li Li Naing"       
+WAVE_NUMBER = "09401878226"     
+WAVE_NAME = "Li Li Naing"       
 TIMEZONE = pytz.timezone('Asia/Yangon')
 
-# 💎 EDIT YOUR PRICES HERE IF THEY CHANGE:
 PRICES = """
 💎 **Diamond ဈေးနှုန်းများ**
 ❗️Minimum order = 55 💎
@@ -47,10 +40,6 @@ PRICES = """
 """
 
 GET_ORDER_INFO, GET_AMOUNT, CONFIRM_ALL, WAIT_PAYMENT = range(4)
-
-# ==========================================
-# 🤖 BOT HANDLERS
-# ==========================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now = datetime.now(TIMEZONE)
@@ -160,6 +149,10 @@ async def user_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.message.reply_text("စတင်ရန် /start ကို နှိပ်ပေးပါ။")
 
 if __name__ == '__main__':
+    if not TOKEN:
+        print("Error: BOT_TOKEN is missing!")
+        exit(1)
+        
     app = ApplicationBuilder().token(TOKEN).build()
     
     conv_handler = ConversationHandler(
