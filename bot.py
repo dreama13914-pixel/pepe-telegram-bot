@@ -7,9 +7,12 @@ from telegram.ext import (
     CallbackQueryHandler, ContextTypes, filters, ConversationHandler
 )
 
-# Render reads this key automatically
+# ==========================================
+# ⚙️ CONFIGURATION
+# ==========================================
 TOKEN = os.getenv("BOT_TOKEN") 
 
+# 🛠️ YOUR SHOP CONFIGURATION DETAILS:
 ADMIN_ID = 7488034821           
 KPAY_NUMBER = "09401878226"     
 KPAY_NAME = "Li Li Naing"       
@@ -17,6 +20,7 @@ WAVE_NUMBER = "09401878226"
 WAVE_NAME = "Li Li Naing"       
 TIMEZONE = pytz.timezone('Asia/Yangon')
 
+# 💎 DIAMOND PRICE LIST:
 PRICES = """
 💎 **Diamond ဈေးနှုန်းများ**
 ❗️Minimum order = 55 💎
@@ -41,17 +45,22 @@ PRICES = """
 
 GET_ORDER_INFO, GET_AMOUNT, CONFIRM_ALL, WAIT_PAYMENT = range(4)
 
+# ==========================================
+# 🤖 BOT HANDLERS
+# ==========================================
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now = datetime.now(TIMEZONE)
     current_hour = now.hour
 
+    # FIXED: Tells them it is closed, but keeps the script running so Render won't crash!
     if not (11 <= current_hour < 17):
         await update.message.reply_text(
             "🌙 **Pepe GameShop is currently CLOSED.**\n\n"
             "ကျွန်ုပ်တို့၏ ဆိုင်ဖွင့်ချိန်မှာ မနက် 11:00 AM မှ ညနေ 5:00 PM အထိ ဖြစ်ပါတယ်။\n"
             "ဖွင့်ချိန်ရောက်မှ ပြန်လာခဲ့ပေးပါ။ ကျေးဇူးတင်ပါတယ်။"
         )
-        return ConversationHandler.END
+        return GET_ORDER_INFO
 
     await update.message.reply_text(
         "Pepe GameShop မှ ကြိုဆိုပါတယ်။ 🎮\n\n"
@@ -150,7 +159,7 @@ async def user_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == '__main__':
     if not TOKEN:
-        print("Error: BOT_TOKEN is missing!")
+        print("Error: BOT_TOKEN environment variable not set!")
         exit(1)
         
     app = ApplicationBuilder().token(TOKEN).build()
