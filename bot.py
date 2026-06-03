@@ -11,7 +11,7 @@ from telegram.ext import (
 # ==========================================
 # ⚙️ CONFIGURATION
 # ==========================================
-TOKEN = os.getenv("8769310147:AAG00L7p6dbVA8SrWIl7S-rndTuu3c9ou40") 
+TOKEN = os.getenv("8769310147:AAH8SEo9Mdox6Z55sN1_QRfr0MHAYgML6Ac") 
 
 # 🛠️ CHANGE THESE VALUES TO YOUR OWN:
 ADMIN_ID = 7488034821           # 👈 Replace with your real Telegram User ID
