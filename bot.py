@@ -1,3 +1,4 @@
+import re
 import os
 from datetime import datetime
 import pytz 
@@ -10,34 +11,36 @@ from telegram.ext import (
 # ==========================================
 # ⚙️ CONFIGURATION
 # ==========================================
-# This reads your token safely from the host settings. No colons are used here!
-TOKEN = os.getenv("BOT_TOKEN")
+# Fixed to match the 'BOT_TOKEN' Key you just set on Render!
+TOKEN = os.getenv("BOT_TOKEN") 
 
-ADMIN_ID = 7488034821 
-KPAY_NUMBER = "09401878226"
-WAVEPAY_NUMBER = "09788599697"
-PAYMENT_NAME = "Li Li Naing"
+# 🛠️ CHANGE THESE VALUES TO YOUR OWN:
+ADMIN_ID = 7488034821           # 👈 Replace with your real Telegram User ID
+KPAY_NUMBER = "09401878226"     # 👈 Replace with your Kpay Phone Number
+KPAY_NAME = "Li Li Naing"       # 👈 Replace with your Kpay Account Name
+TIMEZONE = pytz.timezone('Asia/Yangon')
 
+# 💎 EDIT YOUR PRICES HERE IF THEY CHANGE:
 PRICES = """
-💎 **Diamond Prices**
+💎 **Diamond ဈေးနှုန်းများ**
 ❗️Minimum order = 55 💎
 
-💎 55 = 5,100 MMK
+💎 55 = 4,800 MMK
 💎 86 = 5,300 MMK
-💎 165 = 14,600 MMK
-💎 172 = 15,300 MMK
-💎 257 = 22,600 MMK
-💎 275 = 24,100 MMK
-💎 343 = 30,300 MMK
-💎 565 = 49,100 MMK
-💎 706 = 61,300 MMK
-💎 2195 = 189,300 MMK
-💎 3688 = 317,600 MMK
-💎 5532 = 476,500 MMK
-💎 9288 = 799,300 MMK
+💎 165 = 14,300 MMK
+💎 172 = 15,000 MMK
+💎 257 = 22,300 MMK
+💎 275 = 23,800 MMK
+💎 343 = 30,000 MMK
+💎 565 = 48,800 MMK
+💎 706 = 61,000 MMK
+💎 2195 = 189,000 MMK
+💎 3688 = 317,300 MMK
+💎 5532 = 475,900 MMK
+💎 9288 = 799,000 MMK
 
-🎟 Weekly Pass = 6,800 MMK
-🎟 Twilight Pass = 35,300 MMK
+🎟 Weekly Pass = 6,500 MMK
+🎟 Twilight Pass = 35,000 MMK
 """
 
 GET_ORDER_INFO, GET_AMOUNT, CONFIRM_ALL, WAIT_PAYMENT = range(4)
@@ -47,26 +50,37 @@ GET_ORDER_INFO, GET_AMOUNT, CONFIRM_ALL, WAIT_PAYMENT = range(4)
 # ==========================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    now = datetime.now(TIMEZONE)
+    current_hour = now.hour
+
+    if not (11 <= current_hour < 17):
+        await update.message.reply_text(
+            "🌙 **Pepe GameShop is currently CLOSED.**\n\n"
+            "ကျွန်ုပ်တို့၏ ဆိုင်ဖွင့်ချိန်မှာ မနက် 11:00 AM မှ ညနေ 5:00 PM အထိ ဖြစ်ပါတယ်။\n"
+            "ဖွင့်ချိန်ရောက်မှ ပြန်လာခဲ့ပေးပါ။ ကျေးဇူးတင်ပါတယ်။"
+        )
+        return ConversationHandler.END
+
     await update.message.reply_text(
-        "Welcome to Pepe GameShop! 🎮\n\n"
-        "To purchase Diamonds, please send your **Name** and **ID (Zone)**.\n"
-        "Example: Pepe 123456789 (1234)"
+        "Pepe GameShop မှ ကြိုဆိုပါတယ်။ 🎮\n\n"
+        "Diamond ဝယ်ယူရန်အတွက် သင်၏ **Name** နှင့် **ID (Zone)** ကို ပို့ပေးပါ။\n"
+        "ဥပမာ - Pepe 123456789 (1234)"
     )
     return GET_ORDER_INFO
 
 async def handle_order_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['order_details'] = update.message.text
-    await update.message.reply_text(f"{PRICES}\nPlease type the Amount or Pass type you want to buy.")
+    await update.message.reply_text(f"{PRICES}\nဝယ်ယူမည့် ပမာဏ သို့မဟုတ် Pass အမျိုးအစားကို ရေးပေးပါ။")
     return GET_AMOUNT
 
 async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['amount'] = update.message.text
     
     recheck_text = (
-        "🔍 **Please verify your information**\n\n"
+        "🔍 **အချက်အလက်များကို ပြန်လည်စစ်ဆေးပေးပါ**\n\n"
         f"📝 ID/Name: {context.user_data['order_details']}\n"
         f"💎 Amount: {context.user_data['amount']}\n\n"
-        "Is the above information correct?"
+        "အထက်ပါ အချက်အလက်များ မှန်ကန်ပါသလား?"
     )
     
     kb = [["Yes", "No"]]
@@ -79,15 +93,11 @@ async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def confirm_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text == "Yes":
         await update.message.reply_text(
-            f"💳 **Payment Info**\n\n"
-            f"🔹 Kpay - {KPAY_NUMBER}\n"
-            f"🔹 WavePay - {WAVEPAY_NUMBER}\n"
-            f"👤 Name - {PAYMENT_NAME}\n\n"
-            f"Please send the transaction receipt (Screenshot) once paid."
+            f"💳 **Payment Info**\nKpay - {KPAY_NUMBER}\nName - {KPAY_NAME}\n\nငွေလွှဲပြီးပါက ပြေစာ (Screenshot) ပို့ပေးပါ။"
         )
         return WAIT_PAYMENT
     else:
-        await update.message.reply_text("Information incorrect. Click /start to try again.")
+        await update.message.reply_text("အချက်အလက်များ မှားယွင်းပါက /start ကိုနှိပ်ပြီး ပြန်လည်စတင်ပါ။")
         return ConversationHandler.END
 
 async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -95,7 +105,7 @@ async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = context.user_data
     
     if not update.message.photo:
-        await update.message.reply_text("Please send your payment screenshot photo.")
+        await update.message.reply_text("ကျေးဇူးပြု၍ Ngwe Lwal Pyay Sar Screenshot Pon Po Pay Par.")
         return WAIT_PAYMENT
 
     photo = update.message.photo[-1].file_id
@@ -114,7 +124,7 @@ async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     
     await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo, caption=caption, reply_markup=InlineKeyboardMarkup(buttons))
-    await update.message.reply_text("Admin is verifying your receipt. Please hold on a moment.")
+    await update.message.reply_text("Admin မှ ပြေစာကို စစ်ဆေးနေပါတယ်။ ခေတ္တစောင့်ဆိုင်းပေးပါ။")
     return ConversationHandler.END
 
 async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -122,21 +132,21 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     action, uid = query.data.split("|")
     if action == "acc":
-        await context.bot.send_message(uid, "Payment verified successfully! Your Diamonds are being processed. Please wait around 3 minutes. ⏳")
+        await context.bot.send_message(uid, "ငွေလွှဲမှု အောင်မြင်ပါတယ်။ Diamond ပို့ဆောင်ပေးနေပြီဖြစ်လို့ ၃ မိနစ်လောက်စောင့်ပေးပါ။ ⏳")
         new_buttons = [[InlineKeyboardButton("🚀 Mark as Success", callback_data=f"done|{uid}")]]
         await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(new_buttons))
     elif action == "rej":
         restart_btn = [[InlineKeyboardButton("🔄 Restart Process", callback_data="user_restart")]]
-        await context.bot.send_message(uid, "Payment verification failed. Please check your receipt and try again. ❌", reply_markup=InlineKeyboardMarkup(restart_btn))
+        await context.bot.send_message(uid, "ငွေလွှဲမှု မအောင်မြင်ပါ။ ပြေစာ ပြန်လည်စစ်ဆေးပေးပါ။ ❌", reply_markup=InlineKeyboardMarkup(restart_btn))
         await query.edit_message_caption(query.message.caption + "\n\nStatus: [REJECTED ❌]")
     elif action == "done":
-        await context.bot.send_message(uid, "Your purchased Diamonds have been sent. Thank you! ✅")
+        await context.bot.send_message(uid, "သင်ဝယ်ယူထားသော Diamond များ ပို့ဆောင်ပြီးပါပြီ။ ကျေးဇူးတင်ပါတယ်။ ✅")
         await query.edit_message_caption(query.message.caption + "\n\nStatus: [SUCCESS ✅]")
 
 async def user_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("Press /start to begin.")
+    await query.message.reply_text("စတင်ရန် /start ကို နှိပ်ပေးပါ။")
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
