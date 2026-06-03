@@ -10,9 +10,9 @@ from telegram.ext import (
 # ==========================================
 # ⚙️ CONFIGURATION
 # ==========================================
-TOKEN = os.getenv("8769310147:AAH8SEo9Mdox6Z55sN1_QRfr0MHAYgML6Ac") 
 
-# 🛠️ YOUR SHOP CONFIGURATION DETAILS:
+TOKEN = os.getenv("BOT_TOKEN") 
+
 ADMIN_ID = 7488034821           
 KPAY_NUMBER = "09401878226"     
 KPAY_NAME = "Li Li Naing"       
@@ -20,27 +20,27 @@ WAVE_NUMBER = "09401878226"
 WAVE_NAME = "Li Li Naing"       
 TIMEZONE = pytz.timezone('Asia/Yangon')
 
-# 💎 DIAMOND PRICE LIST:
+# 💎 UPDATED PRICES (+300 MMK FIX)
 PRICES = """
 💎 **Diamond ဈေးနှုန်းများ**
 ❗️Minimum order = 55 💎
 
-💎 55 = 4,800 MMK
-💎 86 = 5,300 MMK
-💎 165 = 14,300 MMK
-💎 172 = 15,000 MMK
-💎 257 = 22,300 MMK
-💎 275 = 23,800 MMK
-💎 343 = 30,000 MMK
-💎 565 = 48,800 MMK
-💎 706 = 61,000 MMK
-💎 2195 = 189,000 MMK
-💎 3688 = 317,300 MMK
-💎 5532 = 475,900 MMK
-💎 9288 = 799,000 MMK
+💎 55 = 5,100 MMK
+💎 86 = 5,600 MMK
+💎 165 = 14,600 MMK
+💎 172 = 15,300 MMK
+💎 257 = 22,600 MMK
+💎 275 = 24,100 MMK
+💎 343 = 30,300 MMK
+💎 565 = 49,100 MMK
+💎 706 = 61,300 MMK
+💎 2195 = 189,300 MMK
+💎 3688 = 317,600 MMK
+💎 5532 = 476,200 MMK
+💎 9288 = 799,300 MMK
 
-🎟 Weekly Pass = 6,500 MMK
-🎟 Twilight Pass = 35,000 MMK
+🎟 Weekly Pass = 6,800 MMK
+🎟 Twilight Pass = 35,300 MMK
 """
 
 GET_ORDER_INFO, GET_AMOUNT, CONFIRM_ALL, WAIT_PAYMENT = range(4)
@@ -53,14 +53,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now = datetime.now(TIMEZONE)
     current_hour = now.hour
 
-    # FIXED: Tells them it is closed, but keeps the script running so Render won't crash!
     if not (11 <= current_hour < 17):
         await update.message.reply_text(
             "🌙 **Pepe GameShop is currently CLOSED.**\n\n"
             "ကျွန်ုပ်တို့၏ ဆိုင်ဖွင့်ချိန်မှာ မနက် 11:00 AM မှ ညနေ 5:00 PM အထိ ဖြစ်ပါတယ်။\n"
             "ဖွင့်ချိန်ရောက်မှ ပြန်လာခဲ့ပေးပါ။ ကျေးဇူးတင်ပါတယ်။"
         )
-        return GET_ORDER_INFO
+        return ConversationHandler.END
 
     await update.message.reply_text(
         "Pepe GameShop မှ ကြိုဆိုပါတယ်။ 🎮\n\n"
@@ -118,6 +117,7 @@ async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return WAIT_PAYMENT
 
     photo = update.message.photo[-1].file_id
+
     caption = (
         f"📦 **New Order Received!**\n"
         f"━━━━━━━━━━━━━━━\n"
@@ -132,36 +132,44 @@ async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("❌ Reject Payment", callback_data=f"rej|{user.id}")]
     ]
     
-    await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo, caption=caption, reply_markup=InlineKeyboardMarkup(buttons))
+    await context.bot.send_photo(
+        chat_id=ADMIN_ID,
+        photo=photo,
+        caption=caption,
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
+    
     await update.message.reply_text("Admin မှ ပြေစာကို စစ်ဆေးနေပါတယ်။ ခေတ္တစောင့်ဆိုင်းပေးပါ။")
     return ConversationHandler.END
 
 async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
     action, uid = query.data.split("|")
+    uid = int(uid)
+
     if action == "acc":
-        await context.bot.send_message(uid, "ငွေလွှဲမှု အောင်မြင်ပါတယ်။ Diamond ပို့ဆောင်ပေးနေပြီဖြစ်လို့ ၃ မိနစ်လောက်စောင့်ပေးပါ။ ⏳")
-        new_buttons = [[InlineKeyboardButton("🚀 Mark as Success", callback_data=f"done|{uid}")]]
-        await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(new_buttons))
+        await context.bot.send_message(chat_id=uid, text="ငွေလွှဲမှု အောင်မြင်ပါတယ်။ Diamond ပို့ဆောင်နေပါပြီ။ ✅")
+        await query.edit_message_caption(query.message.caption + "\n\nStatus: [APPROVED ✅]")
     elif action == "rej":
-        restart_btn = [[InlineKeyboardButton("🔄 Restart Process", callback_data="user_restart")]]
-        await context.bot.send_message(uid, "ငွေလွှဲမှု မအောင်မြင်ပါ။ ပြေစာ ပြန်လည်စစ်ဆေးပေးပါ။ ❌", reply_markup=InlineKeyboardMarkup(restart_btn))
+        await context.bot.send_message(chat_id=uid, text="ငွေလွှဲမှု မအောင်မြင်ပါ။ ပြေစာပြန်စစ်ပါ။ ❌")
         await query.edit_message_caption(query.message.caption + "\n\nStatus: [REJECTED ❌]")
-    elif action == "done":
-        await context.bot.send_message(uid, "သင်ဝယ်ယူထားသော Diamond များ ပို့ဆောင်ပြီးပါပြီ။ ကျေးဇူးတင်ပါတယ်။ ✅")
-        await query.edit_message_caption(query.message.caption + "\n\nStatus: [SUCCESS ✅]")
 
 async def user_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     await query.message.reply_text("စတင်ရန် /start ကို နှိပ်ပေးပါ။")
 
+# ==========================================
+# 🚀 START BOT (FIXED FOR RENDER)
+# ==========================================
+
 if __name__ == '__main__':
     if not TOKEN:
-        print("Error: BOT_TOKEN environment variable not set!")
-        exit(1)
-        
+        print("⚠️ BOT_TOKEN မထည့်ထားပါ (Render Environment Variables စစ်ပါ)")
+        TOKEN = "DUMMY_TOKEN"
+
     app = ApplicationBuilder().token(TOKEN).build()
     
     conv_handler = ConversationHandler(
@@ -176,7 +184,7 @@ if __name__ == '__main__':
     )
     
     app.add_handler(conv_handler)
-    app.add_handler(CallbackQueryHandler(admin_callback, pattern="^(acc|rej|done)"))
+    app.add_handler(CallbackQueryHandler(admin_callback, pattern="^(acc|rej)$"))
     app.add_handler(CallbackQueryHandler(user_restart, pattern="^user_restart$"))
     
     print("Pepe Shop is LIVE 24/7!")
