@@ -10,7 +10,7 @@ from telegram.ext import (
 # ==========================================
 # ⚙️ CONFIGURATION
 # ==========================================
-TOKEN = os.getenv("BOT_TOKEN") 
+TOKEN = os.getenv("8769310147:AAH8SEo9Mdox6Z55sN1_QRfr0MHAYgML6Ac") 
 
 # 🛠️ YOUR SHOP CONFIGURATION DETAILS:
 ADMIN_ID = 7488034821           
