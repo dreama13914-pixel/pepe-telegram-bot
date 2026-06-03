@@ -11,13 +11,16 @@ from telegram.ext import (
 # ==========================================
 # ⚙️ CONFIGURATION
 # ==========================================
-# Fixed to match the 'BOT_TOKEN' Key you just set on Render!
-TOKEN = os.getenv("BOT_TOKEN") 
+TOKEN = os.getenv("8769310147:AAG00L7p6dbVA8SrWIl7S-rndTuu3c9ou40") 
 
 # 🛠️ CHANGE THESE VALUES TO YOUR OWN:
 ADMIN_ID = 7488034821           # 👈 Replace with your real Telegram User ID
 KPAY_NUMBER = "09401878226"     # 👈 Replace with your Kpay Phone Number
 KPAY_NAME = "Li Li Naing"       # 👈 Replace with your Kpay Account Name
+
+WAVE_NUMBER = "09401878226"     # 👈 Put your Wave Pay Phone Number here
+WAVE_NAME = "Li Li Naing"       # 👈 Put your Wave Pay Account Name here
+
 TIMEZONE = pytz.timezone('Asia/Yangon')
 
 # 💎 EDIT YOUR PRICES HERE IF THEY CHANGE:
@@ -92,9 +95,17 @@ async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def confirm_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text == "Yes":
-        await update.message.reply_text(
-            f"💳 **Payment Info**\nKpay - {KPAY_NUMBER}\nName - {KPAY_NAME}\n\nငွေလွှဲပြီးပါက ပြေစာ (Screenshot) ပို့ပေးပါ။"
+        payment_text = (
+            "💳 **Payment Info**\n\n"
+            "**[ KBZPay ]**\n"
+            f"Kpay - {KPAY_NUMBER}\n"
+            f"Name - {KPAY_NAME}\n\n"
+            "**[ Wave Money ]**\n"
+            f"Wave - {WAVE_NUMBER}\n"
+            f"Name - {WAVE_NAME}\n\n"
+            "ငွေလွှဲပြီးပါက ပြေစာ (Screenshot) ပို့ပေးပါ။"
         )
+        await update.message.reply_text(payment_text, parse_mode="Markdown")
         return WAIT_PAYMENT
     else:
         await update.message.reply_text("အချက်အလက်များ မှားယွင်းပါက /start ကိုနှိပ်ပြီး ပြန်လည်စတင်ပါ။")
@@ -105,7 +116,7 @@ async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = context.user_data
     
     if not update.message.photo:
-        await update.message.reply_text("ကျေးဇူးပြု၍ Ngwe Lwal Pyay Sar Screenshot Pon Po Pay Par.")
+        await update.message.reply_text("ကျေးဇူးပြု၍ ငွေလွှဲပြေစာ Screenshot ပုံပို့ပေးပါ။")
         return WAIT_PAYMENT
 
     photo = update.message.photo[-1].file_id
