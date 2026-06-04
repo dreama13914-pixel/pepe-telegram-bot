@@ -11,7 +11,7 @@ from telegram.ext import (
 # ⚙️ CONFIGURATION
 # ==========================================
 
-TOKEN = os.getenv("BOT_TOKEN") 
+TOKEN = os.getenv("8769310147:AAH8SEo9Mdox6Z55sN1_QRfr0MHAYgML6Ac")
 
 ADMIN_ID = 7488034821           
 KPAY_NUMBER = "09401878226"     
@@ -20,27 +20,27 @@ WAVE_NUMBER = "09401878226"
 WAVE_NAME = "Li Li Naing"       
 TIMEZONE = pytz.timezone('Asia/Yangon')
 
-# 💎 UPDATED PRICES (+300 MMK FIX)
+# 💎 DIAMOND PRICE LIST
 PRICES = """
 💎 **Diamond ဈေးနှုန်းများ**
 ❗️Minimum order = 55 💎
 
-💎 55 = 5,100 MMK
-💎 86 = 5,600 MMK
-💎 165 = 14,600 MMK
-💎 172 = 15,300 MMK
-💎 257 = 22,600 MMK
-💎 275 = 24,100 MMK
-💎 343 = 30,300 MMK
-💎 565 = 49,100 MMK
-💎 706 = 61,300 MMK
-💎 2195 = 189,300 MMK
-💎 3688 = 317,600 MMK
-💎 5532 = 476,200 MMK
-💎 9288 = 799,300 MMK
+💎 55 = 4,800 MMK
+💎 86 = 5,300 MMK
+💎 165 = 14,300 MMK
+💎 172 = 15,000 MMK
+💎 257 = 22,300 MMK
+💎 275 = 23,800 MMK
+💎 343 = 30,000 MMK
+💎 565 = 48,800 MMK
+💎 706 = 61,000 MMK
+💎 2195 = 189,000 MMK
+💎 3688 = 317,300 MMK
+💎 5532 = 475,900 MMK
+💎 9288 = 799,000 MMK
 
-🎟 Weekly Pass = 6,800 MMK
-🎟 Twilight Pass = 35,300 MMK
+🎟 Weekly Pass = 6,500 MMK
+🎟 Twilight Pass = 35,000 MMK
 """
 
 GET_ORDER_INFO, GET_AMOUNT, CONFIRM_ALL, WAIT_PAYMENT = range(4)
@@ -63,7 +63,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "Pepe GameShop မှ ကြိုဆိုပါတယ်။ 🎮\n\n"
-        "Diamond ဝယ်ယူရန်အတွက် သင်၏ **Name** နှင့် **ID (Zone)** ကို ပို့ပေးပါ။\n"
+        "Diamond ဝယ်ယူရန်အတွက် သင်၏ Name နှင့် ID (Zone) ကို ပို့ပေးပါ။\n"
         "ဥပမာ - Pepe 123456789 (1234)"
     )
     return GET_ORDER_INFO
@@ -105,7 +105,7 @@ async def confirm_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(payment_text, parse_mode="Markdown")
         return WAIT_PAYMENT
     else:
-        await update.message.reply_text("အချက်အလက်များ မှားယွင်းပါက /start ကိုနှိပ်ပြီး ပြန်လည်စတင်ပါ။")
+        await update.message.reply_text("စတင်ရန် /start ကိုနှိပ်ပါ။")
         return ConversationHandler.END
 
 async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -113,13 +113,13 @@ async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = context.user_data
     
     if not update.message.photo:
-        await update.message.reply_text("ကျေးဇူးပြု၍ ငွေလွှဲပြေစာ Screenshot ပုံပို့ပေးပါ။")
+        await update.message.reply_text("Screenshot ပို့ပေးပါ။")
         return WAIT_PAYMENT
 
     photo = update.message.photo[-1].file_id
 
     caption = (
-        f"📦 **New Order Received!**\n"
+        f"📦 New Order\n"
         f"━━━━━━━━━━━━━━━\n"
         f"📝 Info: {data.get('order_details')}\n"
         f"💎 Amount: {data.get('amount')}\n"
@@ -139,39 +139,45 @@ async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(buttons)
     )
     
-    await update.message.reply_text("Admin မှ ပြေစာကို စစ်ဆေးနေပါတယ်။ ခေတ္တစောင့်ဆိုင်းပေးပါ။")
+    await update.message.reply_text("Admin စစ်နေပါတယ်...")
     return ConversationHandler.END
 
 async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    action, uid = query.data.split("|")
-    uid = int(uid)
+    parts = query.data.split("|")
+    action = parts[0]
+    uid = int(parts[1]) if len(parts) > 1 else None
 
     if action == "acc":
-        await context.bot.send_message(chat_id=uid, text="ငွေလွှဲမှု အောင်မြင်ပါတယ်။ Diamond ပို့ဆောင်နေပါပြီ။ ✅")
-        await query.edit_message_caption(query.message.caption + "\n\nStatus: [APPROVED ✅]")
+        await context.bot.send_message(chat_id=uid, text="Diamond ပို့နေပါပြီ ⏳")
+        await query.edit_message_caption(query.message.caption + "\n\nAPPROVED ✅")
+
     elif action == "rej":
-        await context.bot.send_message(chat_id=uid, text="ငွေလွှဲမှု မအောင်မြင်ပါ။ ပြေစာပြန်စစ်ပါ။ ❌")
-        await query.edit_message_caption(query.message.caption + "\n\nStatus: [REJECTED ❌]")
+        await context.bot.send_message(chat_id=uid, text="ငွေလွှဲမအောင်မြင်ပါ ❌")
+        await query.edit_message_caption(query.message.caption + "\n\nREJECTED ❌")
+
+    elif action == "done":
+        await context.bot.send_message(chat_id=uid, text="ပြီးပါပြီ ✅")
+        await query.edit_message_caption(query.message.caption + "\n\nSUCCESS ✅")
 
 async def user_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("စတင်ရန် /start ကို နှိပ်ပေးပါ။")
+    await query.message.reply_text("စတင်ရန် /start")
 
 # ==========================================
-# 🚀 START BOT (FIXED FOR RENDER)
+# 🚀 START
 # ==========================================
 
 if __name__ == '__main__':
     if not TOKEN:
-        print("⚠️ BOT_TOKEN မထည့်ထားပါ (Render Environment Variables စစ်ပါ)")
-        TOKEN = "DUMMY_TOKEN"
+        print("BOT_TOKEN missing")
+        exit(1)
 
     app = ApplicationBuilder().token(TOKEN).build()
-    
+
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
@@ -182,10 +188,10 @@ if __name__ == '__main__':
         },
         fallbacks=[CommandHandler('start', start)]
     )
-    
+
     app.add_handler(conv_handler)
-    app.add_handler(CallbackQueryHandler(admin_callback, pattern="^(acc|rej)$"))
+    app.add_handler(CallbackQueryHandler(admin_callback))
     app.add_handler(CallbackQueryHandler(user_restart, pattern="^user_restart$"))
-    
-    print("Pepe Shop is LIVE 24/7!")
+
+    print("Bot running 24/7")
     app.run_polling()
