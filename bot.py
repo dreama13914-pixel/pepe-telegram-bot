@@ -86,7 +86,7 @@ async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb = [["Yes", "No"]]
     await update.message.reply_text(
         recheck_text,
-        reply_markup=ReplyKeyboardMarkup(kb, one_time_keyboard=True, resize_keyboard=True)
+        _markup=ReplyKeyboardMarkup(kb, one_time_keyboard=True, resize_keyboard=True)
     )
     return CONFIRM_ALL
 
@@ -151,16 +151,38 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = int(parts[1]) if len(parts) > 1 else None
 
     if action == "acc":
+        # Notify user that process has started
         await context.bot.send_message(chat_id=uid, text="Diamond ပို့နေပါပြီ ⏳")
-        await query.edit_message_caption(query.message.caption + "\n\nAPPROVED ✅")
+        
+        # Change admin buttons to a "Done" button
+        done_button = [[InlineKeyboardButton("📦 Done / Sent", callback_data=f"done|{uid}")]]
+        await query.edit_message_caption(
+            caption=query.message.caption + "\n\nPAYMENT APPROVED ✅\n(Sending Diamonds...)",
+            reply_markup=InlineKeyboardMarkup(done_button)
+        )
 
     elif action == "rej":
         await context.bot.send_message(chat_id=uid, text="ငွေလွှဲမအောင်မြင်ပါ ❌")
-        await query.edit_message_caption(query.message.caption + "\n\nREJECTED ❌")
+        await query.edit_message_caption(
+            caption=query.message.caption + "\n\nREJECTED ❌",
+            reply_markup=None
+        )
 
     elif action == "done":
-        await context.bot.send_message(chat_id=uid, text="ပြီးပါပြီ ✅")
-        await query.edit_message_caption(query.message.caption + "\n\nSUCCESS ✅")
+        # Final success message to user in Myanmar language
+        success_msg = (
+            "✅ **Diamond ထည့်သွင်းမှု အောင်မြင်ပါပြီ။**\n\n"
+            "လူကြီးမင်း၏ အကောင့်ထဲသို့ Diamond များ ထည့်ပေးပြီးပါပြီ။ "
+            "Game ထဲဝင်ပြီး စစ်ဆေးကြည့်ပေးပါ။\n"
+            "Pepe GameShop ကို အားပေးမှုအတွက် အထူးကျေးဇူးတင်ရှိပါသည်။ 🙏✨"
+        )
+        await context.bot.send_message(chat_id=uid, text=success_msg, parse_mode="Markdown")
+        
+        # Final status for Admin panel
+        await query.edit_message_caption(
+            caption=query.message.caption.replace("\n(Sending Diamonds...)", "") + "\n\nSUCCESS & DELIVERED 💎✅",
+            reply_markup=None
+        )
 
 async def user_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
