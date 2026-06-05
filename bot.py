@@ -23,7 +23,7 @@ ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 KPAY_NUMBER = "09401878226"
 KPAY_NAME = "Li Li Naing"
 
-WAVE_NUMBER = "09401878226"
+WAVE_NUMBER = "09788599697"
 WAVE_NAME = "Li Li Naing"
 
 TIMEZONE = pytz.timezone("Asia/Yangon")
