@@ -1,4 +1,5 @@
 import os
+import asyncio
 from datetime import datetime
 import pytz 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -8,7 +9,7 @@ from telegram.ext import (
 )
 
 # ==========================================
-# ⚙️ CONFIGURATION & UPDATED PRICE LIST (+300 MMK)
+# ⚙️ CONFIGURATION & PRICE LIST
 # ==========================================
 ADMIN_ID = 7488034821  
 KPAY_NUMBER = "09401878226"     
@@ -207,9 +208,9 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================
-# MAIN
+# 🚀 MAIN (UPDATED FOR PYTHON 3.14+)
 # ==========================================
-def main():
+async def async_main():
     TOKEN = os.getenv("BOT_TOKEN")
 
     if not TOKEN:
@@ -233,7 +234,22 @@ def main():
     app.add_handler(CallbackQueryHandler(callback))
 
     print("Bot running 24/7 🚀")
-    app.run_polling()
+    
+    # Initialize and spin up the polling context smoothly
+    await app.initialize()
+    await app.updater.start_polling()
+    await app.start()
+    
+    # Keep the async context alive cleanly on Render
+    while True:
+        await asyncio.sleep(3600)
+
+
+def main():
+    try:
+        asyncio.run(async_main())
+    except (KeyboardInterrupt, SystemExit):
+        print("Bot stopped.")
 
 
 if __name__ == "__main__":
