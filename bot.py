@@ -46,9 +46,21 @@ PRICES = """
 GET_ORDER, GET_AMOUNT, CONFIRM, WAIT_PAYMENT = range(4)
 
 # ==========================================
-# START
+# START (SHOP HOURS: 12 PM - 7 PM)
 # ==========================================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    now = datetime.now(TIMEZONE)
+    current_hour = now.hour
+
+    # 12 means 12:00 PM, 19 means 7:00 PM
+    if not (12 <= current_hour < 19):
+        await update.message.reply_text(
+            "🌙 **Pepe GameShop is currently CLOSED.**\n\n"
+            "ကျွန်ုပ်တို့၏ ဆိုင်ဖွင့်ချိန်မှာ မနက် 12:00 PM မှ ညနေ 7:00 PM အထိ ဖြစ်ပါတယ်။\n"
+            "ဖွင့်ချိန်ရောက်မှ ပြန်လာခဲ့ပေးပါ။ ကျေးဇူးတင်ပါတယ်။"
+        )
+        return ConversationHandler.END
+
     await update.message.reply_text(
         "Pepe GameShop မှ ကြိုဆိုပါတယ်။ 🎮\n\n"
         "Diamond ဝယ်ယူရန်အတွက် သင်၏ Name နှင့် ID (Zone) ကို ပို့ပေးပါ။\n"
@@ -208,7 +220,7 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================
-# 🚀 MAIN (UPDATED FOR PYTHON 3.14+)
+# 🚀 MAIN
 # ==========================================
 async def async_main():
     TOKEN = os.getenv("BOT_TOKEN")
@@ -235,12 +247,10 @@ async def async_main():
 
     print("Bot running 24/7 🚀")
     
-    # Initialize and spin up the polling context smoothly
     await app.initialize()
     await app.updater.start_polling()
     await app.start()
     
-    # Keep the async context alive cleanly on Render
     while True:
         await asyncio.sleep(3600)
 
