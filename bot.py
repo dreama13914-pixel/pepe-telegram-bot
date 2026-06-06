@@ -58,7 +58,7 @@ async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     order = context.user_data.get("order")
     amount = context.user_data.get("amount")
 
-    ADMIN_ID = 7488034821  # 🔴 မင်း Telegram ID ထည့်ပါ
+    ADMIN_ID = "YOUR_ADMIN_TOKEN"  # 🔴 မင်း Telegram ID ထည့်ပါ
 
     keyboard = [
         [
