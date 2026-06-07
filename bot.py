@@ -13,87 +13,20 @@ from telegram.ext import (
 # ==========================================
 ADMIN_ID = 7488034821  
 KPAY_NUMBER = "09401878226"     
-KPAY_NAME = "Li Li Naing"       
+KPAY_NAME = "Li Li Naing"        
 WAVE_NUMBER = "09788599697"     
-WAVE_NAME = "Li Li Naing"       
+WAVE_NAME = "Li Li Naing"        
 TIMEZONE = pytz.timezone('Asia/Yangon')
 
-# 🚫 BANNED SERVER IDS (Add any 4-digit server codes you want to block here)
-BANNED_SERVERS = ["5001", "5002", "5003", "9999"]
-
-# ==========================================
-# 💰 DYNAMIC PRICE LISTS
-# ==========================================
-# Normal Servers (-50 MMK discount applied)
-NORMAL_PRICES = """
-🇲🇲 **Normal Server ဈေးနှုန်းများ (-50 MMK Discount!)**
-❗️Minimum order = 55 💎
-
-💎 55 = 5,050 MMK
-💎 86 = 5,550 MMK
-💎 165 = 14,550 MMK
-💎 172 = 15,250 MMK
-💎 257 = 22,550 MMK
-💎 275 = 24,050 MMK
-💎 343 = 30,250 MMK
-💎 565 = 49,050 MMK
-💎 706 = 61,250 MMK
-💎 2195 = 189,250 MMK
-💎 3688 = 317,550 MMK
-💎 5532 = 476,150 MMK
-💎 9288 = 799,250 MMK
-
-🎟 Weekly Pass = 6,750 MMK
-🎟 Twilight Pass = 35,250 MMK
-"""
-
-# Singapore Servers (+2,900 MMK premium added)
-SG_PRICES = """
-🇸🇬 **Singapore Server ဈေးနှုန်းများ (+2,900 MMK Group)**
-❗️Minimum order = 55 💎
-
-💎 55 = 8,000 MMK
-💎 86 = 8,500 MMK
-💎 165 = 17,500 MMK
-💎 172 = 18,200 MMK
-💎 257 = 25,500 MMK
-💎 275 = 27,000 MMK
-💎 343 = 33,200 MMK
-💎 565 = 52,000 MMK
-💎 706 = 64,200 MMK
-💎 2195 = 192,200 MMK
-💎 3688 = 320,500 MMK
-💎 5532 = 479,100 MMK
-💎 9288 = 802,200 MMK
-
-🎟 Weekly Pass = 9,700 MMK
-🎟 Twilight Pass = 38,200 MMK
-"""
+# Global runtime dictionary to connect ongoing user sessions to Admin responses
+# Key: User Chat ID -> Value: Conversation Context Tracker
+ADMIN_ROUTING = {}
 
 # ==========================================
 # STATES
 # ==========================================
-GET_ORDER, GET_AMOUNT, CONFIRM, WAIT_PAYMENT = range(4)
-
-# ==========================================
-# HELPER FUNCTIONS
-# ==========================================
-def extract_server(text):
-    """Extracts a 4-digit server number from brackets like (1234) or plain text"""
-    import re
-    match = re.search(r'\((\d{4})\)', text)
-    if match:
-        return match.group(1)
-    match_alt = re.search(r'\b\d{4}\b', text)
-    if match_alt:
-        return match_alt.group(0)
-    return "Unknown"
-
-def is_singapore_server(server_id):
-    """Checks if server belongs to Singapore range (starts with 2)"""
-    if server_id.isdigit() and server_id.startswith('2'):
-        return True
-    return False
+# Added WAIT_ADMIN_PRICE state to hold the customer session
+GET_ORDER, WAIT_ADMIN_PRICE, GET_AMOUNT, CONFIRM, WAIT_PAYMENT = range(5)
 
 # ==========================================
 # START (SHOP HOURS: 12 PM - 7 PM)
@@ -119,42 +52,94 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================
-# ORDER (WITH AUTO BANNED-SERVER DISMISSAL)
+# STEP 1: USER SENDS ID -> INTERCEPT & ALERTS ADMIN
 # ==========================================
 async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.chat_id
     user_input = update.message.text
+    
     context.user_data["order"] = user_input
-    
-    server_id = extract_server(user_input)
-    context.user_data["server_id"] = server_id
-    
-    # 🚫 Check if it's a banned server profile right away
-    if server_id in BANNED_SERVERS:
-        await update.message.reply_text(
-            f"⚠️ **Top-up Failed (Banned Server Detected)**\n\n"
-            f"လူကြီးမင်းပေးပို့ထားသော Server ID ({server_id}) သည် Myanmar Region တွင် "
-            f"ငွေဖြည့်၍မရသော Ban Server ဖြစ်နေပါသဖြင့် စိတ်မကောင်းပါဘူးခင်ဗျာ။\n\n"
-            f"ကျေးဇူးပြု၍ တရားဝင်အသုံးပြုနိုင်သော Server အကောင့်ဖြင့် ပြန်လည်စမ်းသပ်ပေးပါ။"
-        )
-        return ConversationHandler.END
+    context.user_data["user_id"] = user_id
 
-    # 🇸🇬 Check if it belongs to Singapore premium range
-    if is_singapore_server(server_id):
-        context.user_data["server_type"] = "Singapore 🇸🇬"
-        assigned_prices = SG_PRICES
-        server_notice = f"Your profile is on **Server {server_id} (Singapore Server)**. The regional price has changed to match Singapore tiers."
-    else:
-        context.user_data["server_type"] = "Normal 🇲🇲"
-        assigned_prices = NORMAL_PRICES
-        server_notice = f"Your profile is on **Server {server_id} (Normal Server)**. Standard local prices apply."
-
-    await update.message.reply_text(
-        f"🎯 **Server Identification Success**\n"
-        f"ℹ️ {server_notice}\n\n"
-        f"{assigned_prices}\n\n"
-        f"💰 ဝယ်ယူမည့် ပမာဏ သို့မဟုတ် Pass အမျိုးအစားကို ရေးပေးပါ။"
+    # Alert the Admin immediately
+    admin_alert = (
+        f"🔍 **Incoming Server Verification Request**\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"👤 Customer: {user_id} (@{update.message.from_user.username or 'No Username'})\n"
+        f"📝 Game ID Details: `{user_input}`\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"💡 **Action Required:** Please check the server details. "
+        f"Then, *Reply directly to this exact message* with the pricing list text or Server group instructions you want this user to see."
     )
-    return GET_AMOUNT
+    
+    # Send to admin and store the message object ID to match the reply later
+    admin_msg = await context.bot.send_message(
+        chat_id=ADMIN_ID,
+        text=admin_alert,
+        parse_mode="Markdown"
+    )
+    
+    # Register this cross-link session map globally
+    ADMIN_ROUTING[admin_msg.message_id] = {
+        "user_id": user_id,
+        "context": context
+    }
+
+    # Inform the user they are placed in a short validation queue
+    await update.message.reply_text(
+        "⏳ ကျွန်ုပ်တို့၏ Admin မှ သင်၏ Server အား စစ်ဆေးနေပါသည်။\n"
+        "ခေတ္တခဏ စောင့်ဆိုင်းပေးပါရန် မေတ္တာရပ်ခံအပ်ပါသည်။..."
+    )
+    
+    return WAIT_ADMIN_PRICE
+
+
+# ==========================================
+# STEP 2: ADMIN HANDLES DIRECT TEXT ROUTING 
+# ==========================================
+async def handle_admin_pricing(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Ensure only the designated Admin can push price matrices
+    if update.message.chat_id != ADMIN_ID:
+        return
+
+    # Check if the Admin replied to a message sent by the bot
+    if not update.message.reply_to_message:
+        await update.message.reply_text("⚠️ Please reply directly to the specific user request alert message.")
+        return
+
+    replied_msg_id = update.message.reply_to_message.message_id
+    
+    if replied_msg_id not in ADMIN_ROUTING:
+        await update.message.reply_text("⚠️ Session expired or invalid request mapping.")
+        return
+
+    # Retrieve user mapping target data
+    session_data = ADMIN_ROUTING[replied_msg_id]
+    target_user_id = session_data["user_id"]
+    user_context = session_data["context"]
+    
+    # Get custom layout provided live by Admin
+    admin_custom_prices = update.message.text
+    user_context.user_data["custom_price_shown"] = admin_custom_prices
+
+    # Send dynamic prices straight into customer window chat stream
+    await context.bot.send_message(
+        chat_id=target_user_id,
+        text=(
+            f"🎯 **Server Verification Complete**\n\n"
+            f"{admin_custom_prices}\n\n"
+            f"💰 ဝယ်ယူမည့် ပမာဏ သို့မဟုတ် Pass အမျိုးအစားကို ရေးပေးပါ။"
+        )
+    )
+
+    # Clean up reference mapping
+    del ADMIN_ROUTING[replied_msg_id]
+
+    # Advance the specific user's conversation step programmatically
+    # We update the internal active state machine tracker for that user instance
+    user_context.user_data[ConversationHandler.class_key(ConversationHandler)] = GET_AMOUNT
+    
+    await update.message.reply_text(f"✅ Price list pushed successfully to User {target_user_id}.")
 
 
 # ==========================================
@@ -166,7 +151,6 @@ async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     recheck_text = (
         "🔍 **အချက်အလက်များကို ပြန်လည်စစ်ဆေးပေးပါ**\n\n"
         f"📝 ID/Name: {context.user_data['order']}\n"
-        f"🌐 Region Group: {context.user_data['server_type']} (Server {context.user_data['server_id']})\n"
         f"💎 Amount: {context.user_data['amount']}\n\n"
         "အထက်ပါ အချက်အလက်များ မှန်ကန်ပါက 'YES' ဟု စာရိုက်ပြီး ပို့ပေးပါ။"
     )
@@ -206,8 +190,6 @@ async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     order = context.user_data.get("order")
     amount = context.user_data.get("amount")
-    server_id = context.user_data.get("server_id")
-    server_type = context.user_data.get("server_type")
 
     keyboard = [
         [
@@ -221,7 +203,6 @@ async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"━━━━━━━━━━━━━━━\n"
         f"👤 User: {user.id} (@{user.username if user.username else user.first_name})\n"
         f"📦 Info: {order}\n"
-        f"🌐 Server Config: {server_id} ({server_type})\n"
         f"💰 Amount Sent: {amount}\n"
         f"━━━━━━━━━━━━━━━"
     )
@@ -253,21 +234,16 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     caption_lines = query.message.caption.split("\n")
-    server_info = "Normal Server"
     amount_info = "Diamonds"
     
     for line in caption_lines:
-        if "Server Config:" in line:
-            server_info = line.replace("🌐 Server Config:", "").strip()
         if "Amount Sent:" in line:
             amount_info = line.replace("💰 Amount Sent:", "").strip()
 
-    # =========================
     if action == "acc":
         await context.bot.send_message(
             chat_id=uid,
-            text=f"⏳ Payment approved for **Server {server_info}**!\n"
-                 f"Diamond ({amount_info}) ပို့နေပါပြီ..."
+            text=f"⏳ Payment approved!\nDiamond ({amount_info}) ပို့နေပါပြီ..."
         )
 
         new_btn = [[
@@ -279,12 +255,10 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(new_btn)
         )
 
-    # =========================
     elif action == "rej":
         await context.bot.send_message(
             chat_id=uid,
-            text="❌ ငွေလွှဲမအောင်မြင်ပါ\n"
-                 "ပြေစာကို ပြန်လည်စစ်ဆေးပေးပါ။"
+            text="❌ ငွေလွှဲမအောင်မြင်ပါ\nပြေစာကို ပြန်လည်စစ်ဆေးပေးပါ။"
         )
 
         restart_btn = [[
@@ -296,12 +270,11 @@ async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(restart_btn)
         )
 
-    # =========================
     elif action == "done":
         await context.bot.send_message(
             chat_id=uid,
             text=f"💎 **Diamonds are now in your account!**\n\n"
-                 f"လူကြီးမင်း၏ **Server {server_info}** ထဲသို့ Diamond ({amount_info}) များ ထည့်ပေးပြီးပါပြီ။ ✨\n"
+                 f"လူကြီးမင်း၏ Account ထဲသို့ Diamond ({amount_info}) များ ထည့်ပေးပြီးပါပြီ။ ✨\n"
                  f"Pepe GameShop ကို အားပေးမှုအတွက် အထူးကျေးဇူးတင်ရှိပါသည်။ 🙏"
         )
 
@@ -328,6 +301,8 @@ async def async_main():
         entry_points=[CommandHandler("start", start)],
         states={
             GET_ORDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_order)],
+            # User remains trapped here while you look up prices
+            WAIT_ADMIN_PRICE: [MessageHandler(filters.ALL, lambda u, c: None)], 
             GET_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount)],
             CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
             WAIT_PAYMENT: [MessageHandler(filters.PHOTO, payment)],
@@ -336,9 +311,16 @@ async def async_main():
     )
 
     app.add_handler(conv)
+    
+    # Handler for Admin text replies to intercept pricing delivery
+    app.add_handler(MessageHandler(
+        filters.Chat(ADMIN_ID) & filters.TEXT & ~filters.COMMAND, 
+        handle_admin_pricing
+    ))
+    
     app.add_handler(CallbackQueryHandler(callback))
 
-    print("Bot running 24/7 🚀")
+    print("Bot running with Manual Admin Verification routing 🚀")
     
     await app.initialize()
     await app.updater.start_polling()
