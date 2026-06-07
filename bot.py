@@ -1,4 +1,8 @@
 import os
+import asyncio
+from datetime import datetime
+import pytz
+
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
@@ -11,7 +15,7 @@ ADMIN_ROUTING = {}
 GET_ORDER, WAIT_ADMIN, GET_AMOUNT, CONFIRM, WAIT_PAYMENT = range(5)
 
 # =========================
-# 💎 FULL YOUR PRICE LIST
+# 💎 PRICE LIST
 # =========================
 MMK_PRICES = {
     55: 4800,
@@ -37,23 +41,43 @@ PASS_PRICES = {
 SG_EXTRA = 2900
 
 # =========================
-# START (MYANMAR TEXTS)
+# SHOP TIME
+# =========================
+SHOP_TZ = pytz.timezone("Asia/Yangon")
+
+def shop_open():
+    now = datetime.now(SHOP_TZ)
+    minutes = now.hour * 60 + now.minute
+    return (11 * 60) <= minutes <= (19 * 60 + 30)
+
+# =========================
+# START (MYANMAR TEXT RESTORED)
 # =========================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    if not shop_open():
+        await update.message.reply_text(
+            "🔒 ဆိုင်ပိတ်ထားပါသည်\n\n"
+            "🕚 ဖွင့်ချိန် - 11:00 AM\n"
+            "🕢 ပိတ်ချိန် - 7:30 PM\n\n"
+            "ကျေးဇူးပြု၍ ဖွင့်ချိန်တွင် ပြန်လာပါ 🙏"
+        )
+        return ConversationHandler.END
+
     await update.message.reply_text(
         "🎮 Pepe GameShop မှ ကြိုဆိုပါတယ်\n\n"
         "💎 Diamond / Pass ဝယ်ယူလိုပါက\n"
-        "သင့် Game ID ပို့ပါ\n\n"
+        "သင့် Game ID ပို့ပေးပါ\n\n"
         "📌 ဥပမာ - Pepe 123456 (7788)\n\n"
         "⏳ Server စစ်ဆေးပြီး စျေးနှုန်းပို့ပေးပါမည်"
     )
     return GET_ORDER
 
-
 # =========================
 # USER ORDER
 # =========================
 async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     user_id = update.message.chat_id
     text = update.message.text
 
@@ -83,11 +107,11 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return WAIT_ADMIN
 
-
 # =========================
 # ADMIN SERVER CONTROL
 # =========================
 async def handle_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     if update.message.chat_id != ADMIN_ID:
         return
 
@@ -106,13 +130,10 @@ async def handle_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
 
     if "server:" not in text:
-        return await update.message.reply_text("Use: server: myanmar / singapore / ban")
+        return await update.message.reply_text("server: myanmar / singapore / ban")
 
     server = text.split(":")[1].strip()
 
-    # =========================
-    # BAN USER
-    # =========================
     if server == "ban":
         await context.bot.send_message(
             user_id,
@@ -121,9 +142,6 @@ async def handle_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         del ADMIN_ROUTING[msg_id]
         return
 
-    # =========================
-    # SAVE SERVER
-    # =========================
     user_ctx.user_data["server"] = server
 
     await context.bot.send_message(
@@ -140,21 +158,23 @@ async def handle_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     del ADMIN_ROUTING[msg_id]
     user_ctx.user_data["flow"] = GET_AMOUNT
 
-
 # =========================
-# AMOUNT + PRICE LOGIC
+# AMOUNT
 # =========================
 async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if context.user_data.get("flow") != GET_AMOUNT:
         return
 
-    amount = update.message.text.lower()
+    raw = update.message.text.lower()
+
+    try:
+        amount = int(raw)
+    except:
+        amount = raw
+
     server = context.user_data.get("server", "myanmar")
 
-    # =========================
-    # PRICE CALC
-    # =========================
     if amount in MMK_PRICES:
         price = MMK_PRICES[amount]
 
@@ -162,10 +182,10 @@ async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         price = PASS_PRICES[amount]
 
     else:
-        price = "မရှိပါ ❌"
+        await update.message.reply_text("❌ မရှိပါ")
+        return
 
-    # Singapore adjustment
-    if server == "singapore" and isinstance(price, int):
+    if server == "singapore":
         price += SG_EXTRA
 
     context.user_data["amount"] = amount
@@ -183,7 +203,6 @@ async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return CONFIRM
 
-
 # =========================
 # CONFIRM
 # =========================
@@ -199,11 +218,14 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     return ConversationHandler.END
 
-
 # =========================
-# MAIN (RENDER SAFE)
+# MAIN (FIXED RENDER)
 # =========================
 def main():
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
     app = ApplicationBuilder().token(os.getenv("BOT_TOKEN")).build()
 
     conv = ConversationHandler(
@@ -223,7 +245,6 @@ def main():
 
     print("BOT RUNNING 🚀")
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()
