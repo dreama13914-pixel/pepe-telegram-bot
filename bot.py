@@ -1,5 +1,4 @@
 import os
-import asyncio
 from datetime import datetime
 import pytz
 
@@ -41,7 +40,7 @@ PASS_PRICES = {
 SG_EXTRA = 2900
 
 # =========================
-# SHOP TIME
+# SHOP TIME (MYANMAR)
 # =========================
 SHOP_TZ = pytz.timezone("Asia/Yangon")
 
@@ -51,7 +50,7 @@ def shop_open():
     return (11 * 60) <= minutes <= (19 * 60 + 30)
 
 # =========================
-# START (MYANMAR TEXT RESTORED)
+# START
 # =========================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -108,7 +107,7 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return WAIT_ADMIN
 
 # =========================
-# ADMIN SERVER CONTROL
+# ADMIN CONTROL (FIXED)
 # =========================
 async def handle_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -127,18 +126,19 @@ async def handle_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = session["user_id"]
     user_ctx = session["context"]
 
-    text = update.message.text.lower()
+    text = update.message.text.lower().strip()
 
-    if "server:" not in text:
-        return await update.message.reply_text("server: myanmar / singapore / ban")
+    # FIX: accept both formats
+    if "server:" in text:
+        server = text.split("server:")[1].strip()
+    else:
+        server = text
 
-    server = text.split(":")[1].strip()
+    if server not in ["myanmar", "singapore", "ban"]:
+        return await update.message.reply_text("❌ myanmar / singapore / ban only")
 
     if server == "ban":
-        await context.bot.send_message(
-            user_id,
-            "❌ သင့် order ကို လက်မခံနိုင်ပါ"
-        )
+        await context.bot.send_message(user_id, "❌ သင့် order ကို လက်မခံနိုင်ပါ")
         del ADMIN_ROUTING[msg_id]
         return
 
@@ -150,7 +150,7 @@ async def handle_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🎯 Server Confirmed\n"
             "━━━━━━━━━━━━━━━━━━━\n"
             f"🌍 Server: {server.upper()}\n\n"
-            "💎 Amount (diamond / pass) ရိုက်ပေးပါ\n"
+            "💎 Amount ရိုက်ပါ\n"
             "ဥပမာ - 86 / weekly / twilight"
         )
     )
@@ -159,14 +159,14 @@ async def handle_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_ctx.user_data["flow"] = GET_AMOUNT
 
 # =========================
-# AMOUNT
+# AMOUNT HANDLER (FIXED)
 # =========================
 async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if context.user_data.get("flow") != GET_AMOUNT:
         return
 
-    raw = update.message.text.lower()
+    raw = update.message.text.lower().strip()
 
     try:
         amount = int(raw)
@@ -177,10 +177,8 @@ async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if amount in MMK_PRICES:
         price = MMK_PRICES[amount]
-
     elif amount in PASS_PRICES:
         price = PASS_PRICES[amount]
-
     else:
         await update.message.reply_text("❌ မရှိပါ")
         return
@@ -219,22 +217,19 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 # =========================
-# MAIN (FIXED RENDER)
+# MAIN (RENDER SAFE - NO LOOP ERROR)
 # =========================
 def main():
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
 
     app = ApplicationBuilder().token(os.getenv("BOT_TOKEN")).build()
 
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            GET_ORDER: [MessageHandler(filters.TEXT, handle_order)],
+            GET_ORDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_order)],
             WAIT_ADMIN: [MessageHandler(filters.TEXT, lambda u, c: None)],
-            GET_AMOUNT: [MessageHandler(filters.TEXT, handle_amount)],
-            CONFIRM: [MessageHandler(filters.TEXT, confirm)],
+            GET_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount)],
+            CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
             WAIT_PAYMENT: [MessageHandler(filters.PHOTO, lambda u, c: None)],
         },
         fallbacks=[CommandHandler("start", start)]
@@ -244,7 +239,9 @@ def main():
     app.add_handler(MessageHandler(filters.Chat(ADMIN_ID) & filters.TEXT, handle_admin))
 
     print("BOT RUNNING 🚀")
-    app.run_polling()
+
+    # FIX: prevents Render crash
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
