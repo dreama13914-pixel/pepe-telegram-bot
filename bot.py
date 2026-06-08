@@ -1,4 +1,5 @@
 import os
+import asyncio
 from datetime import datetime
 import pytz
 
@@ -21,8 +22,10 @@ KBZPAY = "09401878226"
 WAVEPAY = "09788599697"
 SG_EXTRA = 2900
 
+SHOP_TZ = pytz.timezone("Asia/Yangon")
+
 # =========================
-# PRICE LIST (UNCHANGED)
+# PRICE LIST
 # =========================
 
 PRICE_TEXT = """💎 Diamond ဈေးများ
@@ -73,7 +76,7 @@ PASS_PRICES = {
 }
 
 # =========================
-# STORAGE FIX (IMPORTANT)
+# STORAGE
 # =========================
 
 user_data_store = {}
@@ -83,6 +86,9 @@ user_data_store = {}
 # =========================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    user_id = update.effective_chat.id
+    user_data_store[user_id] = {}
 
     await update.message.reply_text(
         "👋 Hello!\n"
@@ -123,7 +129,7 @@ async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# SERVER SELECT (FIXED FLOW)
+# SERVER BUTTONS
 # =========================
 
 async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -151,7 +157,7 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# AMOUNT (FIXED)
+# AMOUNT
 # =========================
 
 async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -161,7 +167,7 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data = user_data_store.get(user_id)
 
-    if not data:
+    if not data or "server" not in data:
         await update.message.reply_text("❌ /start ပြန်လုပ်ပါ")
         return ConversationHandler.END
 
@@ -184,8 +190,8 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data["server"] == "sg":
         price += SG_EXTRA
 
-    data["amount"] = value
-    data["price"] = price
+    user_data_store[user_id]["amount"] = value
+    user_data_store[user_id]["price"] = price
 
     await update.message.reply_text(
         f"🔍 CONFIRM ORDER\n\n"
@@ -218,7 +224,7 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# PAYMENT → ADMIN
+# PAYMENT
 # =========================
 
 async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -247,7 +253,7 @@ async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# ADMIN ACTIONS (FIXED FLOW)
+# ADMIN ACTIONS
 # =========================
 
 async def admin_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -261,24 +267,22 @@ async def admin_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if action == "rej":
         await context.bot.send_message(
             uid,
-            "❌ ငွေလက်ခံမရသေးပါ\n👉 ပြန်စပြီးကြိုးစားပါ"
+            "❌ ငွေလက်မခံနိုင်ပါ\n👉 ပြန်စပြီးကြိုးစားပါ"
         )
         return
 
-    if action == "acc":
-        await context.bot.send_message(
-            uid,
-            "⏳ Diamonds ထည့်နေပါသည်...\nAdmin လုပ်ဆောင်နေသည်"
-        )
+    await context.bot.send_message(
+        uid,
+        "⏳ Diamonds ထည့်နေပါသည်...\nAdmin လုပ်ဆောင်နေသည်"
+    )
 
-        await context.bot.send_message(
-            ADMIN_ID,
-            f"👤 User {uid} accepted\n"
-            "ပြီးပါက FINISH နှိပ်ပါ",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🏁 FINISH", callback_data=f"fin_{uid}")]
-            ])
-        )
+    await context.bot.send_message(
+        ADMIN_ID,
+        f"👤 User {uid} accepted\nပြီးပါက FINISH နှိပ်ပါ",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🏁 FINISH", callback_data=f"fin_{uid}")]
+        ])
+    )
 
 
 async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -291,16 +295,15 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(
         uid,
-        "🎉 Diamonds သင့်အကောင့်ထဲထည့်ပြီးပါပြီ\n"
-        "🙏 ကျေးဇူးတင်ပါတယ်"
+        "🎉 Diamonds သင့်အကောင့်ထဲထည့်ပြီးပါပြီ\n🙏 ကျေးဇူးတင်ပါတယ်"
     )
 
 
 # =========================
-# MAIN (STABLE)
+# MAIN (FIXED FOR RENDER + PYTHON 3.14)
 # =========================
 
-def main():
+async def run():
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -313,16 +316,22 @@ def main():
             CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
             WAIT_PAYMENT: [MessageHandler(filters.PHOTO, payment)],
         },
-        fallbacks=[CommandHandler("start", start)]
+        fallbacks=[CommandHandler("start", start)],
+        per_message=True
     )
 
     app.add_handler(conv)
     app.add_handler(CallbackQueryHandler(admin_final, pattern="^(acc|rej)_"))
     app.add_handler(CallbackQueryHandler(finish, pattern="^fin_"))
 
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+
     print("BOT RUNNING 🚀")
-    app.run_polling(drop_pending_updates=True)
+
+    await app.updater.idle()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(run())
