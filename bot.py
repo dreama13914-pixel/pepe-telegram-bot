@@ -8,7 +8,7 @@ from telegram.ext import (
     ConversationHandler, ContextTypes, CallbackQueryHandler, filters
 )
 
-ADMIN_ID = 7488034821
+ADMIN_ID = "YOUR_ID"
 
 GET_ORDER, GET_AMOUNT, CONFIRM, WAIT_PAYMENT = range(4)
 
