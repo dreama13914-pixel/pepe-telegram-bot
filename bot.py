@@ -2,19 +2,19 @@ import os
 from datetime import datetime
 import pytz
 
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
-    ConversationHandler, ContextTypes, filters
+    ConversationHandler, ContextTypes, CallbackQueryHandler, filters
 )
 
 ADMIN_ID = 7488034821
 ADMIN_ROUTING = {}
 
-GET_ORDER, WAIT_ADMIN, GET_AMOUNT, CONFIRM, WAIT_PAYMENT = range(5)
+GET_ORDER, GET_AMOUNT, CONFIRM, WAIT_PAYMENT = range(4)
 
 # =========================
-# 💎 PRICE LIST
+# 💎 PRICE LIST (DO NOT CHANGE)
 # =========================
 MMK_PRICES = {
     55: 4800,
@@ -40,7 +40,7 @@ PASS_PRICES = {
 SG_EXTRA = 2900
 
 # =========================
-# SHOP TIME (MYANMAR)
+# SHOP TIME
 # =========================
 SHOP_TZ = pytz.timezone("Asia/Yangon")
 
@@ -50,7 +50,7 @@ def shop_open():
     return (11 * 60) <= minutes <= (19 * 60 + 30)
 
 # =========================
-# START
+# START (MYANMAR TEXTS KEPT)
 # =========================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -70,10 +70,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📌 ဥပမာ - Pepe 123456 (7788)\n\n"
         "⏳ Server စစ်ဆေးပြီး စျေးနှုန်းပို့ပေးပါမည်"
     )
+
     return GET_ORDER
 
 # =========================
-# USER ORDER
+# USER ORDER → SEND TO ADMIN WITH BUTTONS
 # =========================
 async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -82,90 +83,55 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["order"] = text
 
-    msg = await context.bot.send_message(
-        chat_id=ADMIN_ID,
-        text=(
-            "🔍 NEW ORDER REQUEST\n"
-            "━━━━━━━━━━━━━━━━━━━\n"
-            f"👤 User: {user_id}\n"
-            f"📝 ID: {text}\n\n"
-            "📌 Reply:\n"
-            "server: myanmar / singapore / ban"
-        )
-    )
-
-    ADMIN_ROUTING[msg.message_id] = {
-        "user_id": user_id,
-        "context": context
-    }
-
-    await update.message.reply_text(
-        "⏳ Admin မှ server စစ်ဆေးနေပါသည်...\n"
-        "ခဏစောင့်ပါ"
-    )
-
-    return WAIT_ADMIN
-
-# =========================
-# ADMIN CONTROL (FIXED)
-# =========================
-async def handle_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    if update.message.chat_id != ADMIN_ID:
-        return
-
-    if not update.message.reply_to_message:
-        return
-
-    msg_id = update.message.reply_to_message.message_id
-
-    if msg_id not in ADMIN_ROUTING:
-        return await update.message.reply_text("❌ Session expired")
-
-    session = ADMIN_ROUTING[msg_id]
-    user_id = session["user_id"]
-    user_ctx = session["context"]
-
-    text = update.message.text.lower().strip()
-
-    # FIX: accept both formats
-    if "server:" in text:
-        server = text.split("server:")[1].strip()
-    else:
-        server = text
-
-    if server not in ["myanmar", "singapore", "ban"]:
-        return await update.message.reply_text("❌ myanmar / singapore / ban only")
-
-    if server == "ban":
-        await context.bot.send_message(user_id, "❌ သင့် order ကို လက်မခံနိုင်ပါ")
-        del ADMIN_ROUTING[msg_id]
-        return
-
-    user_ctx.user_data["server"] = server
+    keyboard = [
+        [InlineKeyboardButton("🇲🇲 Myanmar", callback_data=f"server_myanmar_{user_id}")],
+        [InlineKeyboardButton("🇸🇬 Singapore", callback_data=f"server_singapore_{user_id}")],
+        [InlineKeyboardButton("🚫 Ban", callback_data=f"server_ban_{user_id}")]
+    ]
 
     await context.bot.send_message(
-        chat_id=user_id,
-        text=(
-            "🎯 Server Confirmed\n"
-            "━━━━━━━━━━━━━━━━━━━\n"
-            f"🌍 Server: {server.upper()}\n\n"
-            "💎 Amount ရိုက်ပါ\n"
-            "ဥပမာ - 86 / weekly / twilight"
-        )
+        chat_id=ADMIN_ID,
+        text=f"🔍 NEW ORDER\n👤 User: {user_id}\n📝 ID: {text}",
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-    del ADMIN_ROUTING[msg_id]
-    user_ctx.user_data["flow"] = GET_AMOUNT
+    await update.message.reply_text("⏳ Admin စစ်ဆေးနေပါသည်...")
+    return GET_AMOUNT
 
 # =========================
-# AMOUNT HANDLER (FIXED)
+# ADMIN BUTTON HANDLER
+# =========================
+async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data.split("_")
+    action = data[1]
+    user_id = int(data[2])
+
+    if action == "ban":
+        await context.bot.send_message(user_id, "❌ သင့် order ကို လက်မခံနိုင်ပါ")
+        return
+
+    context.application.user_data[user_id] = {"server": action}
+
+    text = (
+        "🎯 Server Confirmed\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        f"🌍 Server: {action.upper()}\n\n"
+        "💎 Amount ရိုက်ပါ\n"
+        "ဥပမာ - 86 / weekly / twilight"
+    )
+
+    await context.bot.send_message(user_id, text)
+
+# =========================
+# AMOUNT HANDLER
 # =========================
 async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    if context.user_data.get("flow") != GET_AMOUNT:
-        return
-
+    user_id = update.message.chat_id
     raw = update.message.text.lower().strip()
 
     try:
@@ -173,7 +139,8 @@ async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         amount = raw
 
-    server = context.user_data.get("server", "myanmar")
+    user_data = context.application.user_data.get(user_id, {})
+    server = user_data.get("server", "myanmar")
 
     if amount in MMK_PRICES:
         price = MMK_PRICES[amount]
@@ -186,14 +153,14 @@ async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if server == "singapore":
         price += SG_EXTRA
 
-    context.user_data["amount"] = amount
-    context.user_data["price"] = price
+    user_data["amount"] = amount
+    user_data["price"] = price
+    context.application.user_data[user_id] = user_data
 
     await update.message.reply_text(
         "🔍 ပြန်စစ်ပါ\n"
         "━━━━━━━━━━━━━━━━━━━\n"
-        f"📦 Order: {context.user_data['order']}\n"
-        f"💎 Item: {amount}\n"
+        f"📦 Item: {amount}\n"
         f"🌍 Server: {server}\n"
         f"💰 Price: {price}\n\n"
         "YES ရိုက်ပါ"
@@ -214,10 +181,27 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return WAIT_PAYMENT
 
+# =========================
+# PAYMENT SCREENSHOT → ADMIN
+# =========================
+async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    user_id = update.message.chat_id
+
+    await context.bot.forward_message(
+        chat_id=ADMIN_ID,
+        from_chat_id=user_id,
+        message_id=update.message.message_id
+    )
+
+    await update.message.reply_text(
+        "✅ Order received!\nကျေးဇူးတင်ပါတယ် 🙏"
+    )
+
     return ConversationHandler.END
 
 # =========================
-# MAIN (RENDER SAFE - NO LOOP ERROR)
+# MAIN
 # =========================
 def main():
 
@@ -227,20 +211,17 @@ def main():
         entry_points=[CommandHandler("start", start)],
         states={
             GET_ORDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_order)],
-            WAIT_ADMIN: [MessageHandler(filters.TEXT, lambda u, c: None)],
             GET_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount)],
             CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
-            WAIT_PAYMENT: [MessageHandler(filters.PHOTO, lambda u, c: None)],
+            WAIT_PAYMENT: [MessageHandler(filters.PHOTO, payment)],
         },
         fallbacks=[CommandHandler("start", start)]
     )
 
     app.add_handler(conv)
-    app.add_handler(MessageHandler(filters.Chat(ADMIN_ID) & filters.TEXT, handle_admin))
+    app.add_handler(CallbackQueryHandler(handle_buttons))
 
     print("BOT RUNNING 🚀")
-
-    # FIX: prevents Render crash
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
