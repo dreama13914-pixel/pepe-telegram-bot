@@ -69,7 +69,17 @@ PASS_PRICES = {
     "twilight": 35050
 }
 
+# ================= MEMORY =================
+
 user_data = {}
+
+# ================= SAFE GET =================
+
+def get_user(uid):
+    if uid not in user_data:
+        user_data[uid] = {}
+    return user_data[uid]
+
 
 # ================= START =================
 
@@ -79,8 +89,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🔒 Shop Closed\n🕒 11:00 - 19:30")
         return ConversationHandler.END
 
-    user_id = update.effective_chat.id
-    user_data[user_id] = {}
+    uid = update.effective_chat.id
+    get_user(uid).clear()
 
     await update.message.reply_text(
         "👋 Hello!\n🎮 Welcome to Pepe's Diamond Shop\n\n"
@@ -94,18 +104,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    user_id = update.effective_chat.id
-    user_data[user_id]["id"] = update.message.text
+    uid = update.effective_chat.id
+    data = get_user(uid)
+
+    data["id"] = update.message.text
 
     keyboard = [
-        [InlineKeyboardButton("🇲🇲 Myanmar", callback_data=f"mm_{user_id}")],
-        [InlineKeyboardButton("🇸🇬 Singapore", callback_data=f"sg_{user_id}")],
-        [InlineKeyboardButton("🚫 Ban", callback_data=f"ban_{user_id}")]
+        [InlineKeyboardButton("🇲🇲 Myanmar", callback_data=f"mm_{uid}")],
+        [InlineKeyboardButton("🇸🇬 Singapore", callback_data=f"sg_{uid}")],
+        [InlineKeyboardButton("🚫 Ban", callback_data=f"ban_{uid}")]
     ]
 
     await context.bot.send_message(
         ADMIN_ID,
-        f"🔍 NEW ID CHECK\n{update.message.text}\nUSER: {user_id}",
+        f"🔍 NEW ID CHECK\n{update.message.text}\nUSER: {uid}",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
@@ -113,7 +125,7 @@ async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return GET_SERVER
 
 
-# ================= SERVER BUTTONS =================
+# ================= SERVER =================
 
 async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -123,11 +135,13 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action, uid = query.data.split("_")
     uid = int(uid)
 
+    data = get_user(uid)
+
     if action == "ban":
         await context.bot.send_message(uid, "❌ Order rejected")
         return ConversationHandler.END
 
-    user_data[uid]["server"] = action
+    data["server"] = action
 
     await context.bot.send_message(
         uid,
@@ -141,11 +155,12 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    user_id = update.effective_chat.id
+    uid = update.effective_chat.id
+    data = get_user(uid)
+
     text = update.message.text.lower().strip()
 
-    data = user_data.get(user_id)
-    if not data:
+    if "server" not in data:
         await update.message.reply_text("❌ /start again")
         return ConversationHandler.END
 
@@ -168,8 +183,8 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data["server"] == "sg":
         price += SG_EXTRA
 
-    user_data[user_id]["amount"] = value
-    user_data[user_id]["price"] = price
+    data["amount"] = value
+    data["price"] = price
 
     await update.message.reply_text(
         f"🔍 CONFIRM\nItem: {value}\nPrice: {price}\nType YES"
@@ -197,11 +212,11 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    user_id = update.effective_chat.id
+    uid = update.effective_chat.id
 
     keyboard = [
-        [InlineKeyboardButton("✅ ACCEPT", callback_data=f"acc_{user_id}")],
-        [InlineKeyboardButton("❌ REJECT", callback_data=f"rej_{user_id}")]
+        [InlineKeyboardButton("✅ ACCEPT", callback_data=f"acc_{uid}")],
+        [InlineKeyboardButton("❌ REJECT", callback_data=f"rej_{uid}")]
     ]
 
     await context.bot.send_message(
@@ -210,7 +225,7 @@ async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-    await context.bot.forward_message(ADMIN_ID, user_id, update.message.message_id)
+    await context.bot.forward_message(ADMIN_ID, uid, update.message.message_id)
 
     return ConversationHandler.END
 
@@ -240,6 +255,8 @@ async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+# ================= FINISH =================
+
 async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = update.callback_query
@@ -251,7 +268,7 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(uid, "🎉 Diamonds delivered!")
 
 
-# ================= MAIN (FIXED) =================
+# ================= MAIN =================
 
 def main():
 
@@ -261,10 +278,7 @@ def main():
         entry_points=[CommandHandler("start", start)],
         states={
             GET_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_id)],
-
-            # ✅ FIX 1: THIS WAS MISSING BEFORE
             GET_SERVER: [CallbackQueryHandler(server_buttons)],
-
             GET_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_amount)],
             CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
             WAIT_PAYMENT: [MessageHandler(filters.PHOTO, payment)],
@@ -277,8 +291,6 @@ def main():
     app.add_handler(CallbackQueryHandler(finish, pattern="^fin_"))
 
     print("BOT RUNNING 🚀")
-
-    # ✅ FIX 2: NO asyncio, NO updater, NO idle issues
     app.run_polling(drop_pending_updates=True)
 
 
