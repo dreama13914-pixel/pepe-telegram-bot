@@ -19,7 +19,7 @@ WAVEPAY = "09788599697"
 SG_EXTRA = 2900
 
 # =========================
-# PRICE LIST (YOUR EXACT)
+# PRICE LIST (UNCHANGED)
 # =========================
 
 PRICE_TEXT = """💎 Diamond ဈေးများ
@@ -70,7 +70,7 @@ PASS_PRICES = {
 }
 
 # =========================
-# MEMORY STORAGE
+# MEMORY
 # =========================
 
 user_data = {}
@@ -114,11 +114,13 @@ async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text("⏳ Admin checking...")
-    return GET_AMOUNT
+
+    # FIX: stop state correctly (no GET_AMOUNT here)
+    return ConversationHandler.END
 
 
 # =========================
-# SERVER SELECT
+# SERVER BUTTONS (FIXED SAFE FLOW)
 # =========================
 
 async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -130,7 +132,10 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if action == "ban":
         await context.bot.send_message(uid, "❌ Order rejected")
-        return ConversationHandler.END
+        return
+
+    if uid not in user_data:
+        user_data[uid] = {}
 
     user_data[uid]["server"] = action
 
@@ -140,8 +145,6 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{PRICE_TEXT}\n\n"
         "💎 Enter amount (55, 86, weekly1...)"
     )
-
-    return GET_AMOUNT
 
 
 # =========================
@@ -153,7 +156,7 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower().strip()
 
     data = user_data.get(user_id)
-    if not data:
+    if not data or "server" not in data:
         await update.message.reply_text("❌ /start again")
         return ConversationHandler.END
 
@@ -245,20 +248,14 @@ async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = int(uid)
 
     if action == "rej":
-        await context.bot.send_message(
-            uid,
-            "❌ Payment not received\nPlease try again"
-        )
+        await context.bot.send_message(uid, "❌ Payment not received\nTry again")
         return
 
-    await context.bot.send_message(
-        uid,
-        "⏳ Adding diamonds...\nAdmin is working"
-    )
+    await context.bot.send_message(uid, "⏳ Adding diamonds...")
 
     await context.bot.send_message(
         ADMIN_ID,
-        f"User {uid} accepted\nPress FINISH when done",
+        f"User {uid} accepted\nPress FINISH",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🏁 FINISH", callback_data=f"fin_{uid}")]
         ])
@@ -283,7 +280,7 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# MAIN (FIXED FOR RENDER)
+# MAIN (STABLE FIX)
 # =========================
 
 def main():
@@ -306,8 +303,6 @@ def main():
     app.add_handler(CallbackQueryHandler(finish, pattern="^fin_"))
 
     print("BOT RUNNING 🚀")
-
-    # IMPORTANT: correct modern PTB way (NO idle, NO asyncio)
     app.run_polling(drop_pending_updates=True)
 
 
