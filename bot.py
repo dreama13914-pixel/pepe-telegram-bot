@@ -13,27 +13,30 @@ ADMIN_ID = 7488034821
 GET_ORDER, GET_AMOUNT, CONFIRM, WAIT_PAYMENT = range(4)
 
 # =========================
-# 💎 PRICE LIST (YOUR ORIGINAL)
+# 💎 PRICE LIST (+50 MMK FIXED)
 # =========================
 MMK_PRICES = {
-    55: 4800,
-    86: 5300,
-    165: 14300,
-    172: 15000,
-    257: 22300,
-    275: 23800,
-    343: 30000,
-    565: 48800,
-    706: 61000,
-    2195: 189000,
-    3688: 317300,
-    5532: 475900,
-    9288: 799000
+    55: 4850,
+    86: 5350,
+    165: 14350,
+    172: 15050,
+    257: 22350,
+    275: 23850,
+    343: 30050,
+    565: 48850,
+    706: 61050,
+    2195: 189050,
+    3688: 317350,
+    5532: 475950,
+    9288: 799050
 }
 
+# Weekly pass upgrade (3 levels)
 PASS_PRICES = {
-    "weekly": 6500,
-    "twilight": 35000
+    "weekly1": 6550,
+    "weekly2": 12550,
+    "weekly3": 18550,
+    "twilight": 35050
 }
 
 SG_EXTRA = 2900
@@ -46,33 +49,34 @@ def shop_open():
     return 11 * 60 <= minutes <= 19 * 60 + 30
 
 
+# =========================
 # SAFE STORAGE
+# =========================
 USER_DATA = {}
 
 
 # =========================
-# START (MYANMAR TEXT KEPT)
+# START MESSAGE (PEPE VERSION)
 # =========================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not shop_open():
         await update.message.reply_text(
-            "🔒 ဆိုင်ပိတ်ထားပါသည်\n\n"
-            "🕚 ဖွင့်ချိန် - 11:00 AM\n"
-            "🕢 ပိတ်ချိန် - 7:30 PM"
+            "🔒 Shop closed\n🕚 11:00 AM - 7:30 PM"
         )
         return ConversationHandler.END
 
     await update.message.reply_text(
-        "🎮 Pepe GameShop မှ ကြိုဆိုပါတယ်\n\n"
-        "💎 Game ID ပို့ပေးပါ"
+        "🎮 Pepe Diamond Shop မှ ကြိုဆိုပါတယ်\n\n"
+        "သင့် Game ID ကို ဒီပုံစံနဲ့ ပို့ပါ\n"
+        "👉 Pepe 1600113465 (16740)"
     )
 
     return GET_ORDER
 
 
 # =========================
-# ORDER
+# ORDER → ADMIN BUTTONS
 # =========================
 async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -89,11 +93,11 @@ async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(
         ADMIN_ID,
-        f"🔍 NEW ORDER\n👤 ID: {user_id}\n📝 {text}",
+        f"NEW ORDER\nID: {user_id}\n{text}",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-    await update.message.reply_text("⏳ Admin စစ်ဆေးနေပါသည်...")
+    await update.message.reply_text("⏳ Admin checking server...")
     return GET_AMOUNT
 
 
@@ -109,7 +113,7 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = int(uid)
 
     if action == "ban":
-        await context.bot.send_message(uid, "❌ သင့် order ကို လက်မခံနိုင်ပါ")
+        await context.bot.send_message(uid, "❌ Order rejected")
         return
 
     USER_DATA.setdefault(uid, {})
@@ -117,14 +121,14 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(
         uid,
-        "🎯 Server Confirmed\n"
+        "🎯 Server Confirmed\n\n"
         f"🌍 Server: {action.upper()}\n\n"
-        "💎 Amount (86 / weekly / twilight)"
+        "Send amount (86 / weekly1 / weekly2 / weekly3 / twilight)"
     )
 
 
 # =========================
-# AMOUNT
+# AMOUNT HANDLER
 # =========================
 async def amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -160,11 +164,11 @@ async def amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     })
 
     await update.message.reply_text(
-        "🔍 Confirm\n"
+        "🔍 CONFIRM ORDER\n\n"
         f"📦 Item: {value}\n"
         f"🌍 Server: {server}\n"
         f"💰 Price: {price}\n\n"
-        "Type YES"
+        "Type YES to continue"
     )
 
     return CONFIRM
@@ -177,28 +181,28 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if update.message.text.lower() == "yes":
         await update.message.reply_text(
-            "💳 Payment Info\n\n"
-            "🏦 KBZPay: 09401878226 (Li Li Naing)\n"
-            "🏦 Wave Pay: 09788599697 (Li Li Naing)\n\n"
-            "📸 Send screenshot after payment"
+            "💳 Payment Method\n"
+            "KBZPay / Wave Money\n\n"
+            "Send payment screenshot 📸"
         )
         return WAIT_PAYMENT
 
 
 # =========================
-# PAYMENT
+# PAYMENT → ADMIN
 # =========================
 async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = update.message.chat_id
 
     await context.bot.forward_message(
-        ADMIN_ID,
-        user_id,
-        update.message.message_id
+        chat_id=ADMIN_ID,
+        from_chat_id=user_id,
+        message_id=update.message.message_id
     )
 
-    await update.message.reply_text("✅ Order received\nကျေးဇူးတင်ပါတယ် 🙏")
+    await update.message.reply_text("✅ Order received! Thanks 🙏")
+
     return ConversationHandler.END
 
 
@@ -225,7 +229,7 @@ def main():
 
     print("BOT RUNNING 🚀")
 
-    # FIX: prevents Render exit 1 + loop crash
+    # Render-safe polling (NO CRASH FIX)
     app.run_polling(drop_pending_updates=True)
 
 
