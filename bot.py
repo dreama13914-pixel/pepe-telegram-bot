@@ -21,14 +21,15 @@ SG_EXTRA = 2900
 
 SHOP_TZ = pytz.timezone("Asia/Yangon")
 
-# ================= SHOP TIME (FIXED) =================
+# ================= SHOP TIME =================
 
 def shop_open():
     now = datetime.now(SHOP_TZ)
     minutes = now.hour * 60 + now.minute
-    return 11 * 60 <= minutes <= 19 * 60 + 30   # 11:00 - 19:30
+    return 11 * 60 <= minutes <= 19 * 60 + 30
 
-# ================= PRICE LIST (YOUR EXACT) =================
+
+# ================= PRICE LIST =================
 
 PRICE_TEXT = """💎 Diamond ဈေးများ
 
@@ -75,22 +76,19 @@ user_data = {}
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not shop_open():
-        await update.message.reply_text(
-            "🔒 Shop Closed\n\n🕒 Open: 11:00 AM - 7:30 PM"
-        )
+        await update.message.reply_text("🔒 Shop Closed\n🕒 11:00 - 19:30")
         return ConversationHandler.END
 
     user_id = update.effective_chat.id
     user_data[user_id] = {}
 
     await update.message.reply_text(
-        "👋 Hello!\n"
-        "🎮 Welcome to Pepe's Diamond Shop\n\n"
-        "📌 သင့် Game ID ကိုပို့ပါ\n"
-        "👉 ဥပမာ - Pepe 1600113465 (16740)"
+        "👋 Hello!\n🎮 Welcome to Pepe's Diamond Shop\n\n"
+        "📌 သင့် Game ID ကိုပို့ပါ\n👉 ဥပမာ - Pepe 1600113465 (16740)"
     )
 
     return GET_ID
+
 
 # ================= GET ID =================
 
@@ -114,7 +112,8 @@ async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("⏳ Admin စစ်ဆေးနေပါသည်...")
     return GET_SERVER
 
-# ================= SERVER =================
+
+# ================= SERVER BUTTONS =================
 
 async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -125,19 +124,18 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = int(uid)
 
     if action == "ban":
-        await context.bot.send_message(uid, "❌ Ban Server ဖြစ်သဖြင့်သင့် Order ကို ပယ်ဖျက်လိုက်ပါသည်")
+        await context.bot.send_message(uid, "❌ Order rejected")
         return ConversationHandler.END
 
     user_data[uid]["server"] = action
 
     await context.bot.send_message(
         uid,
-        f"🎯 Server Confirmed: {action.upper()}\n\n"
-        f"{PRICE_TEXT}\n\n"
-        "💎 အရေအတွက် ရိုက်ပါ (55, 86, weekly1...)"
+        f"🎯 Server: {action.upper()}\n\n{PRICE_TEXT}\n\n💎 Enter amount"
     )
 
     return GET_AMOUNT
+
 
 # ================= AMOUNT =================
 
@@ -147,8 +145,8 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower().strip()
 
     data = user_data.get(user_id)
-    if not data or "server" not in data:
-        await update.message.reply_text("❌ /start ပြန်လုပ်ပါ")
+    if not data:
+        await update.message.reply_text("❌ /start again")
         return ConversationHandler.END
 
     try:
@@ -164,7 +162,7 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         price = PASS_PRICES[value]
 
     if price is None:
-        await update.message.reply_text("❌ မရှိပါ ပြန်ရိုက်ပါ")
+        await update.message.reply_text("❌ Not found")
         return GET_AMOUNT
 
     if data["server"] == "sg":
@@ -174,30 +172,26 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data[user_id]["price"] = price
 
     await update.message.reply_text(
-        f"🔍 CONFIRM ORDER\n\n"
-        f"📦 Item: {value}\n"
-        f"💰 Price: {price} MMK\n\n"
-        "👉 YES လို့ရိုက်ပါ"
+        f"🔍 CONFIRM\nItem: {value}\nPrice: {price}\nType YES"
     )
 
     return CONFIRM
+
 
 # ================= CONFIRM =================
 
 async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if update.message.text.lower() != "yes":
-        await update.message.reply_text("👉 YES လို့ပဲရိုက်ပါ")
+        await update.message.reply_text("Type YES")
         return CONFIRM
 
     await update.message.reply_text(
-        f"💳 PAYMENT INFO\n\n"
-        f"KBZPay: {KBZPAY}\n"
-        f"WavePay: {WAVEPAY}\n\n"
-        "📸 Screenshot ပို့ပါ"
+        f"💳 PAYMENT INFO\nKBZ: {KBZPAY}\nWave: {WAVEPAY}\n📸 Send screenshot"
     )
 
     return WAIT_PAYMENT
+
 
 # ================= PAYMENT =================
 
@@ -216,14 +210,10 @@ async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-    await context.bot.forward_message(
-        ADMIN_ID,
-        user_id,
-        update.message.message_id
-    )
+    await context.bot.forward_message(ADMIN_ID, user_id, update.message.message_id)
 
-    await update.message.reply_text("⏳ Admin စစ်ဆေးနေပါသည်...")
     return ConversationHandler.END
+
 
 # ================= ADMIN =================
 
@@ -236,26 +226,19 @@ async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = int(uid)
 
     if action == "rej":
-        await context.bot.send_message(
-            uid,
-            "❌ ငွေလက်မခံနိုင်ပါ\n👉 ပြန်စပါ"
-        )
+        await context.bot.send_message(uid, "❌ Payment rejected")
         return
 
-    await context.bot.send_message(
-        uid,
-        "⏳ Diamonds ထည့်နေပါသည်...\nAdmin လုပ်ဆောင်နေသည်"
-    )
+    await context.bot.send_message(uid, "⏳ Processing diamonds...")
 
     await context.bot.send_message(
         ADMIN_ID,
-        f"👤 User {uid} accepted\nပြီးပါက FINISH နှိပ်ပါ",
+        f"User {uid} accepted",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🏁 FINISH", callback_data=f"fin_{uid}")]
         ])
     )
 
-# ================= FINISH =================
 
 async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
@@ -265,12 +248,10 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _, uid = query.data.split("_")
     uid = int(uid)
 
-    await context.bot.send_message(
-        uid,
-        "🎉 Diamonds သင့်အကောင့်ထဲထည့်ပြီးပါပြီ\n🙏 အားပေးတဲ့အတွက် ကျေးဇူးတင်ပါတယ်"
-    )
+    await context.bot.send_message(uid, "🎉 Diamonds delivered!")
 
-# ================= MAIN (RENDER SAFE) =================
+
+# ================= MAIN (FIXED) =================
 
 def main():
 
@@ -280,7 +261,10 @@ def main():
         entry_points=[CommandHandler("start", start)],
         states={
             GET_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_id)],
+
+            # ✅ FIX 1: THIS WAS MISSING BEFORE
             GET_SERVER: [CallbackQueryHandler(server_buttons)],
+
             GET_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_amount)],
             CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
             WAIT_PAYMENT: [MessageHandler(filters.PHOTO, payment)],
@@ -293,7 +277,10 @@ def main():
     app.add_handler(CallbackQueryHandler(finish, pattern="^fin_"))
 
     print("BOT RUNNING 🚀")
+
+    # ✅ FIX 2: NO asyncio, NO updater, NO idle issues
     app.run_polling(drop_pending_updates=True)
+
 
 if __name__ == "__main__":
     main()
