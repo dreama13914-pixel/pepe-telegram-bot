@@ -1,4 +1,5 @@
 import os
+import asyncio
 from datetime import datetime
 import pytz
 
@@ -12,7 +13,8 @@ from telegram.ext import (
 # CONFIG
 # =========================
 
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))  # FIXED (must be int)
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 GET_ORDER, GET_AMOUNT, CONFIRM, WAIT_PAYMENT = range(4)
 
@@ -20,11 +22,10 @@ KBZPAY = "09401878226"
 WAVEPAY = "09788599697"
 
 SG_EXTRA = 2900
-
 SHOP_TZ = pytz.timezone("Asia/Yangon")
 
 # =========================
-# PRICE LIST
+# PRICES
 # =========================
 
 BASE_PRICES = {
@@ -51,7 +52,7 @@ PASS_PRICES = {
 }
 
 # =========================
-# SHOP TIME CHECK
+# SHOP TIME
 # =========================
 
 def shop_open():
@@ -67,49 +68,45 @@ def shop_open():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not shop_open():
-        await update.message.reply_text(
-            "🔒 ဆိုင်ပိတ်ထားပါသည်\n🕚 11:00 AM - 7:30 PM"
-        )
+        await update.message.reply_text("🔒 Shop closed\n11:00 - 19:30")
         return ConversationHandler.END
 
     await update.message.reply_text(
-        "🎮 Pepe Diamond Shop မှ ကြိုဆိုပါတယ်\n\n"
-        "📌 Game ID ပို့ပါ\n"
-        "👉 Example: Pepe 1600113465 (16740)"
+        "🎮 Welcome\nSend your Game ID"
     )
 
     return GET_ORDER
 
 
 # =========================
-# USER ORDER
+# ORDER
 # =========================
 
 async def handle_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    user_id = update.message.chat_id
+    user_id = update.effective_chat.id
     text = update.message.text
 
     context.user_data["order"] = text
 
     keyboard = [
-        [InlineKeyboardButton("🇲🇲 Myanmar", callback_data=f"mm_{user_id}")],
-        [InlineKeyboardButton("🇸🇬 Singapore", callback_data=f"sg_{user_id}")],
-        [InlineKeyboardButton("🚫 Ban", callback_data=f"ban_{user_id}")]
+        [InlineKeyboardButton("MM", callback_data=f"mm_{user_id}")],
+        [InlineKeyboardButton("SG", callback_data=f"sg_{user_id}")],
+        [InlineKeyboardButton("BAN", callback_data=f"ban_{user_id}")]
     ]
 
     await context.bot.send_message(
-        chat_id=ADMIN_ID,
-        text=f"🔍 NEW ORDER\n{text}\nUSER: {user_id}",
+        ADMIN_ID,
+        f"NEW ORDER\n{text}\nUSER: {user_id}",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-    await update.message.reply_text("⏳ Admin checking...")
+    await update.message.reply_text("Waiting admin...")
     return GET_AMOUNT
 
 
 # =========================
-# ADMIN BUTTONS
+# CALLBACK (ADMIN)
 # =========================
 
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -121,15 +118,16 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = int(uid)
 
     if action == "ban":
-        await context.bot.send_message(uid, "❌ Order rejected")
+        await context.bot.send_message(uid, "❌ Rejected")
         return
 
-    context.user_data[uid] = {"server": action}
+    context.application.bot_data[f"user_{uid}"] = {
+        "server": action
+    }
 
     await context.bot.send_message(
         uid,
-        f"🎯 Server Confirmed: {action.upper()}\n"
-        "💎 Amount ရိုက်ပါ (55 / 86 / weekly1 / weekly2 / weekly3 / twilight)"
+        f"Server: {action.upper()}\nSend amount (55, 86, weekly1...)"
     )
 
 
@@ -139,43 +137,36 @@ async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    user_id = update.message.chat_id
+    user_id = update.effective_chat.id
     raw = update.message.text.lower().strip()
+
+    data = context.application.bot_data.get(f"user_{user_id}")
+
+    if not data:
+        await update.message.reply_text("❌ /start again")
+        return ConversationHandler.END
 
     try:
         value = int(raw)
     except:
         value = raw
 
-    data = context.user_data.get(user_id)
-    if not data:
-        await update.message.reply_text("❌ /start again")
-        return ConversationHandler.END
-
-    server = data.get("server", "mm")
-
-    if value in BASE_PRICES:
+    if isinstance(value, int) and value in BASE_PRICES:
         price = BASE_PRICES[value]
-    elif value in PASS_PRICES:
+    elif isinstance(value, str) and value in PASS_PRICES:
         price = PASS_PRICES[value]
     else:
         await update.message.reply_text("❌ Not found")
         return GET_AMOUNT
 
-    if server == "sg":
+    if data["server"] == "sg":
         price += SG_EXTRA
 
-    context.user_data[user_id].update({
-        "amount": value,
-        "price": price
-    })
+    data["amount"] = value
+    data["price"] = price
 
     await update.message.reply_text(
-        f"🔍 CONFIRM\n"
-        f"Item: {value}\n"
-        f"Server: {server}\n"
-        f"Price: {price} MMK\n\n"
-        "Type YES"
+        f"CONFIRM\nItem: {value}\nPrice: {price}\nType YES"
     )
 
     return CONFIRM
@@ -187,19 +178,15 @@ async def amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    if update.message.text.lower() == "yes":
+    if update.message.text.lower() != "yes":
+        await update.message.reply_text("Type YES")
+        return CONFIRM
 
-        await update.message.reply_text(
-            f"💳 PAYMENT INFO\n\n"
-            f"KBZPay: {KBZPAY}\n"
-            f"WavePay: {WAVEPAY}\n\n"
-            "📸 Screenshot ပို့ပါ"
-        )
+    await update.message.reply_text(
+        f"Pay:\nKBZ: {KBZPAY}\nWave: {WAVEPAY}\nSend screenshot"
+    )
 
-        return WAIT_PAYMENT
-
-    await update.message.reply_text("Type YES to confirm")
-    return CONFIRM
+    return WAIT_PAYMENT
 
 
 # =========================
@@ -208,25 +195,24 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    user_id = update.message.chat_id
+    user_id = update.effective_chat.id
 
     await context.bot.forward_message(
-        chat_id=ADMIN_ID,
-        from_chat_id=user_id,
-        message_id=update.message.message_id
+        ADMIN_ID,
+        user_id,
+        update.message.message_id
     )
 
-    await update.message.reply_text("✅ Order received")
+    await update.message.reply_text("✅ Received")
     return ConversationHandler.END
 
 
 # =========================
-# MAIN
+# RUNNER (FIX FOR RENDER + PYTHON 3.14 ISSUE)
 # =========================
 
-def main():
-
-    app = ApplicationBuilder().token(os.getenv("BOT_TOKEN")).build()
+async def run():
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
@@ -242,9 +228,11 @@ def main():
     app.add_handler(conv)
     app.add_handler(CallbackQueryHandler(buttons))
 
-    print("BOT RUNNING 🚀")
-    app.run_polling(drop_pending_updates=True)
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+    await app.updater.idle()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(run())
