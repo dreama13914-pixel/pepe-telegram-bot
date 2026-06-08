@@ -21,10 +21,8 @@ KBZPAY = "09401878226"
 WAVEPAY = "09788599697"
 SG_EXTRA = 2900
 
-SHOP_TZ = pytz.timezone("Asia/Yangon")
-
 # =========================
-# PRICE LIST (YOUR EXACT STYLE)
+# PRICE LIST (UNCHANGED)
 # =========================
 
 PRICE_TEXT = """💎 Diamond ဈေးများ
@@ -75,7 +73,7 @@ PASS_PRICES = {
 }
 
 # =========================
-# STATE STORAGE
+# STORAGE FIX (IMPORTANT)
 # =========================
 
 user_data_store = {}
@@ -97,7 +95,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# USER SEND ID
+# GET ID
 # =========================
 
 async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -125,7 +123,7 @@ async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# ADMIN SERVER BUTTONS
+# SERVER SELECT (FIXED FLOW)
 # =========================
 
 async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -138,7 +136,7 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if action == "ban":
         await context.bot.send_message(uid, "❌ သင့် Order ကို ပယ်ဖျက်လိုက်ပါသည်")
-        return
+        return ConversationHandler.END
 
     user_data_store[uid]["server"] = action
 
@@ -146,14 +144,14 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         uid,
         f"🎯 Server Confirmed: {action.upper()}\n\n"
         f"{PRICE_TEXT}\n\n"
-        "💎 အရေအတွက် ရိုက်ပါ (ဥပမာ 55, 86, weekly1)"
+        "💎 အရေအတွက် ရိုက်ပါ (55, 86, weekly1...)"
     )
 
     return GET_AMOUNT
 
 
 # =========================
-# AMOUNT
+# AMOUNT (FIXED)
 # =========================
 
 async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -249,7 +247,7 @@ async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# ADMIN FINAL ACTION
+# ADMIN ACTIONS (FIXED FLOW)
 # =========================
 
 async def admin_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -273,7 +271,6 @@ async def admin_final(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "⏳ Diamonds ထည့်နေပါသည်...\nAdmin လုပ်ဆောင်နေသည်"
         )
 
-        # second button (finish)
         await context.bot.send_message(
             ADMIN_ID,
             f"👤 User {uid} accepted\n"
@@ -300,7 +297,7 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =========================
-# MAIN (SAFE FOR RENDER)
+# MAIN (STABLE)
 # =========================
 
 def main():
