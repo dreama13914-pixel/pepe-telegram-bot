@@ -87,7 +87,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not shop_open():
-        await update.message.reply_text("🔒 ဆိုင်ပိတ်ထားပါတယ်။\n🕒 ဆိုင်ဖွင့်ချိန်ကတော့ (11:00 - 19:30) ဖြစ်ပါတယ်နော်။")
+        await update.message.reply_text("🔒 ဆိုင်ပိတ်နေပါပြီ။\n🕒 ဆိုင်ဖွင့်ချိန်ကတော့ (11:00 - 19:30) ဖြစ်ပါတယ်နော်။")
         return
 
     uid = update.effective_chat.id
@@ -166,6 +166,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❌ ဝယ်ယူလိုတဲ့ ပမာဏ သို့မဟုတ် အမျိုးအစား မှားယွင်းနေလို့ သေချာပြန်ရိုက်ပေးပါနော်။")
             return
 
+        # Singapore Server ဖြစ်ပါက ဈေးနှုန်းကို ၂၉၀၀ ကျပ် တခါတည်းပေါင်းထည့်ပေးခြင်း
         if data["server"] == "sg":
             price += SG_EXTRA
 
@@ -187,6 +188,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(
             f"🔍 အော်ဒါအချက်အလက်ကို ပြန်စစ်ပေးပါ။\n\n"
+            f"• ရွေးချယ်ထားသော Server: {data['server'].upper()}\n"
             f"• ဝယ်ယူမည့်အမျိုးအစား: {display_item}\n"
             f"• ကျသင့်ငွေ: {price:,} MMK\n\n"
             f"👉 အတည်ပြုပြီး ဝယ်ယူမယ်ဆိုရင် YES ဟု စာလုံးကြီးဖြင့် ရိုက်ပို့ပေးပါနော်။"
@@ -218,10 +220,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # 4. ငွေလွှဲစောင့်ဆိုင်းခြင်း အဆင့် (STATE_WAIT_PAYMENT)
+    # 4. Ngwe lhwl sawnt hsaing jin
     elif current_state == STATE_WAIT_PAYMENT:
         if not update.message.photo:
-            await update.message.reply_text("❌ ငွေလွှဲဖြတ်ပိုင်း Screenshot ပုံ ပို့ပေးရပါမယ်။ ပုံလေးပြန်ပို့ပေးပါ။")
+            await update.message.reply_text("❌ Ngwe hlwel phat pine Screenshot pone pot pay ya mal. Pone lay pyan pot pay par.")
             return
 
         keyboard = [
@@ -231,7 +233,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             ADMIN_ID,
-            f"💰 ငွေလွှဲဖြတ်ပိုင်းအသစ် ရောက်ရှိလာပါပြီ\nUSER ID: {uid}\nID: {data.get('id')}\nပမာဏ: {data.get('amount')}",
+            f"💰 Ngwe hlwel phat pine a thit\nUSER ID: {uid}\nID: {data.get('id')}\nServer: {data.get('server').upper()}\nပမာဏ: {data.get('amount')}\nကျသင့်ငွေ: {data.get('price'):,} MMK",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
