@@ -107,6 +107,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = get_user(uid)
     current_state = data.get("state", STATE_IDLE)
 
+    # 1. ID လက်ခံခြင်း အဆင့်
     if current_state == STATE_GET_ID:
         if not update.message.text:
             return
@@ -121,28 +122,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             ADMIN_ID,
-            f"🔍 NEW ID CHECK\n{update.message.text}\nUSER: {uid}",
+            f"🔍 ID အသစ် စစ်ဆေးရန်\n{update.message.text}\nUSER ID: {uid}",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
         await update.message.reply_text("⏳ Admin ဘက်က ID စစ်ပေးနေလို့ ခေတ္တစောင့်ဆိုင်းပေးပါနော်...")
         return
 
+    # 2. ပမာဏ လက်ခံခြင်း အဆင့် (STATE_GET_AMOUNT)
     elif current_state == STATE_GET_AMOUNT:
         if not update.message.text:
             return
         text = update.message.text.lower().strip().replace(" ", "")
 
         if "server" not in data:
-            await update.message.reply_text("❌ စနစ်ပိုင်းအဆင်မပြေဖြစ်သွားလို့ /start ကို ပြန်နှိပ်ပေးပါ။")
+            await update.message.reply_text("❌ စနစ်ပိုင်းဆိုင်ရာ မှားယွင်းမှုရှိသွားလို့ /start ကို ပြန်နှိပ်ပေးပါ။")
             data["state"] = STATE_IDLE
             return
 
-        if text in ["wp1", "weeklypass1", "weekly1"]:
+        # Pass အမျိုးအစားများကို သတ်မှတ်ချက်အတိုင်း စစ်ဆေးခြင်း
+        if text in ["wp1", "weeklypass1", "weekly1", "wp 1", "wp_1"]:
             value = "weekly1"
-        elif text in ["wp2", "weeklypass2", "weekly2"]:
+        elif text in ["wp2", "weeklypass2", "weekly2", "wp 2", "wp_2"]:
             value = "weekly2"
-        elif text in ["wp3", "weeklypass3", "weekly3"]:
+        elif text in ["wp3", "weeklypass3", "weekly3", "wp 3", "wp_3"]:
             value = "weekly3"
         elif text in ["twi", "twilight", "twilightpass"]:
             value = "twilight"
@@ -160,7 +163,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             price = PASS_PRICES[value]
 
         if price is None:
-            await update.message.reply_text("❌ ဝယ်ယူလိုတဲ့ ပမာဏ/အမျိုးအစား မှားယွင်းနေလို့ သေချာပြန်ရိုက်ပေးပါနော်။")
+            await update.message.reply_text("❌ ဝယ်ယူလိုတဲ့ ပမာဏ သို့မဟုတ် အမျိုးအစား မှားယွင်းနေလို့ သေချာပြန်ရိုက်ပေးပါနော်။")
             return
 
         if data["server"] == "sg":
@@ -175,6 +178,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             display_item = "Weekly Pass 3"
         elif value == "twilight":
             display_item = "Twilight Pass"
+        else:
+            display_item = f"{value} Diamond"
 
         data["amount"] = value
         data["price"] = price
@@ -184,19 +189,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🔍 အော်ဒါအချက်အလက်ကို ပြန်စစ်ပေးပါ။\n\n"
             f"• ဝယ်ယူမည့်အမျိုးအစား: {display_item}\n"
             f"• ကျသင့်ငွေ: {price:,} MMK\n\n"
-            f"👉 အတည်ပြုပြီး ဝယ်ယူမယ်ဆိုရင် YES ဟု ရိုက်ပို့ပေးပါနော်။"
+            f"👉 အတည်ပြုပြီး ဝယ်ယူမယ်ဆိုရင် YES ဟု စာလုံးကြီးဖြင့် ရိုက်ပို့ပေးပါနော်။"
         )
         return
 
+    # 3. အော်ဒါ အတည်ပြုခြင်း အဆင့် (STATE_CONFIRM)
     elif current_state == STATE_CONFIRM:
         if not update.message.text:
             return
         
-        if update.message.text.lower() != "yes":
+        if update.message.text.upper() != "YES":
             data["state"] = STATE_GET_AMOUNT
             await update.message.reply_text(
                 "❌ အော်ဒါကို အတည်မပြုခဲ့ပါဘူး။\n"
-                "ဝယ်ယူလိုတဲ့ Diamond ပမာဏ (သို့) အမျိုးအစားကို ပြန်လည်ရိုက်ထည့်ပေးပါနော်။\n\n"
+                "ဝယ်ယူလိုတဲ့ Diamond ပမာဏ သို့မဟုတ် အမျိုးအစားကို ပြန်လည်ရိုက်ထည့်ပေးပါနော်။\n\n"
                 "💡 [သတိပြုရန်]\n"
                 "Weekly Pass အတွက် wp 1, wp 2, wp 3 ဟု ရိုက်ပေးပါ။\n"
                 "Twilight Pass အတွက် twi ဟု ရိုက်ပေးပါ။"
@@ -212,6 +218,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # 4. ငွေလွှဲစောင့်ဆိုင်းခြင်း အဆင့် (STATE_WAIT_PAYMENT)
     elif current_state == STATE_WAIT_PAYMENT:
         if not update.message.photo:
             await update.message.reply_text("❌ ငွေလွှဲဖြတ်ပိုင်း Screenshot ပုံ ပို့ပေးရပါမယ်။ ပုံလေးပြန်ပို့ပေးပါ။")
@@ -224,16 +231,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             ADMIN_ID,
-            "💰 NEW PAYMENT RECEIVED",
+            f"💰 ငွေလွှဲဖြတ်ပိုင်းအသစ် ရောက်ရှိလာပါပြီ\nUSER ID: {uid}\nID: {data.get('id')}\nပမာဏ: {data.get('amount')}",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
         await context.bot.forward_message(ADMIN_ID, uid, update.message.message_id)
-        await update.message.reply_text("✨ Ngwe hlwel phat pine lak khan ya she par pre.\nAdmin ka sit say pee tar nae Diamond chat chin htal thwin pay thwar mar mo khatt saung pay par naw.")
+        await update.message.reply_text("✨ ငွေလွှဲဖြတ်ပိုင်း လက်ခံရရှိပါပြီ။\nAdmin က စစ်ဆေးပြီးတာနဲ့ Diamond ချက်ချင်းထည့်သွင်းပေးသွားမှာမို့ ခေတ္တစောင့်ပေးပါနော်။")
         
         data["state"] = STATE_IDLE
         return
 
+
+# ================= SERVER CALLBACK (ADMIN ACTION) =================
 
 async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -263,6 +272,8 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+# ================= ADMIN ACTIONS CALLBACK =================
+
 async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -278,12 +289,14 @@ async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(
         ADMIN_ID,
-        f"User {uid} accepted",
+        f"User {uid} အော်ဒါကို လက်ခံလိုက်ပါပြီ။",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🏁 FINISH", callback_data=f"fin_{uid}")]
         ])
     )
 
+
+# ================= FINISH CALLBACK =================
 
 async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -294,6 +307,8 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(uid, "🎉 အကောင့်ထဲကို Diamond များ ထည့်သွင်းမှု အောင်မြင်စွာ ပြီးဆုံးပါပြီ!\nPepe's Diamond Shop ကို အားပေးတဲ့အတွက် အထူးပင် ကျေးဇူးတင်ရှိပါတယ်နော်။ 🥰")
 
+
+# ================= MAIN =================
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
