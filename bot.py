@@ -142,17 +142,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif current_state == STATE_GET_AMOUNT:
         if not update.message.text:
             return
-        text = update.message.text.lower().strip()
+        text = update.message.text.lower().strip().replace(" ", "")
 
         if "server" not in data:
             await update.message.reply_text("❌ စနစ်ပိုင်းအဆင်မပြေဖြစ်သွားလို့ /start ကို ပြန်နှိပ်ပေးပါ။")
             data["state"] = STATE_IDLE
             return
 
-        try:
-            value = int(text)
-        except:
-            value = text
+        # Smart clean-up for variant inputs of passes
+        if text in ["wp1", "weeklypass1", "weekly1"]:
+            value = "weekly1"
+        elif text in ["wp2", "weeklypass2", "weekly2"]:
+            value = "weekly2"
+        elif text in ["wp3", "weeklypass3", "weekly3"]:
+            value = "weekly3"
+        elif text in ["twi", "twilight", "twilightpass"]:
+            value = "twilight"
+        else:
+            try:
+                value = int(text)
+            except:
+                value = text
 
         price = None
 
@@ -168,13 +178,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if data["server"] == "sg":
             price += SG_EXTRA
 
+        # Formatting display text safely for confirmation window
+        display_item = value
+        if value == "weekly1":
+            display_item = "Weekly Pass 1"
+        elif value == "weekly2":
+            display_item = "Weekly Pass 2"
+        elif value == "weekly3":
+            display_item = "Weekly Pass 3"
+        elif value == "twilight":
+            display_item = "Twilight Pass"
+
         data["amount"] = value
         data["price"] = price
         data["state"] = STATE_CONFIRM
 
         await update.message.reply_text(
             f"🔍 အော်ဒါအချက်အလက်ကို ပြန်စစ်ပေးပါ။\n\n"
-            f"• ဝယ်ယူမည့်အမျိုးအစား: {value}\n"
+            f"• ဝယ်ယူမည့်အမျိုးအစား: {display_item}\n"
             f"• ကျသင့်ငွေ: {price:,} MMK\n\n"
             f"👉 အတည်ပြုပြီး ဝယ်ယူမယ်ဆိုရင် YES ဟု ရိုက်ပို့ပေးပါနော်။"
         )
@@ -184,8 +205,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif current_state == STATE_CONFIRM:
         if not update.message.text:
             return
+        
+        # If customer types anything other than "YES", cancel and loop back to AMOUNT step
         if update.message.text.lower() != "yes":
-            await update.message.reply_text("⚠️ အော်ဒါအတည်ပြုဖို့အတွက် YES ဟု စာလုံးအမှန်အတိုင်း ရိုက်ပို့ပေးပါ။")
+            data["state"] = STATE_GET_AMOUNT
+            await update.message.reply_text(
+                "❌ အော်ဒါကို အတည်မပြုခဲ့ပါဘူး။\n"
+                "ဝယ်ယူလိုတဲ့ Diamond ပမာဏ (သို့) အမျိုးအစားကို ပြန်လည်ရိုက်ထည့်ပေးပါနော်။\n\n"
+                "💡 [သတိပြုရန်]\n"
+                "Weekly Pass အတွက် wp 1, wp 2, wp 3 ဟု ရိုက်ပေးပါ။\n"
+                "Twilight Pass အတွက် twi ဟု ရိုက်ပေးပါ။"
+            )
             return
 
         data["state"] = STATE_WAIT_PAYMENT
@@ -215,7 +245,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         await context.bot.forward_message(ADMIN_ID, uid, update.message.message_id)
-        await update.message.reply_text("✨ ငွေလွှဲဖြတ်ပိုင်း လက်ခံရရှိပါပြီ။\nAdmin က စစ်ဆေးပြီးတာနဲ့ Diamond ချက်ချင်းထည့်သွင်းပေးသွားမှာမို့ ခေတ္တစောင့်ပေးပါနော်။")
+        await update.message.reply_text("✨ Ngwe hlwel phat pine lak khan ya she par pre.\nAdmin ka sit say pee tar nae Diamond chat chin htal thwin pay thwar mar mo khatt saung pay par naw.")
         
         data["state"] = STATE_IDLE
         return
@@ -237,16 +267,17 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         data["state"] = STATE_IDLE
         return
 
-    # Assign server selection to the unique customer's dataset
     data["server"] = action
-    # Explicitly set the customer's state to accept an amount next
     data["state"] = STATE_GET_AMOUNT
 
     await context.bot.send_message(
         uid,
         f"🎯 ရွေးချယ်ထားသော Server: {action.upper()}\n\n"
         f"{PRICE_TEXT}\n"
-        f"👉 အထက်ပါဈေးနှုန်းများအတိုင်း ဝယ်ယူလိုတဲ့ ပမာဏ (သို့) အမျိုးအစားကို ရိုက်ထည့်ပေးပါနော်။"
+        f"👉 ဝယ်ယူလိုသည့် ပမာဏကို ရိုက်ထည့်ပေးပါ။\n\n"
+        f"💡 [သတိပြုရန်]\n"
+        f"Weekly Pass ဝယ်ယူလိုပါက wp 1, wp 2, wp 3 ဟု ရိုက်ထည့်ပေးပါ။\n"
+        f"Twilight Pass ဝယ်ယူလိုပါက twi ဟု ရိုက်ထည့်ပေးပါ။"
     )
 
 
