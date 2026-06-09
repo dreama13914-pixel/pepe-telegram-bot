@@ -22,7 +22,6 @@ STATE_WAIT_PAYMENT = "WAIT_PAYMENT"
 
 KBZPAY = "09401878226"
 WAVEPAY = "09788599697"
-SG_EXTRA = 2900
 
 SHOP_TZ = pytz.timezone("Asia/Yangon")
 
@@ -34,9 +33,9 @@ def shop_open():
     return 11 * 60 <= minutes <= 19 * 60 + 30
 
 
-# ================= PRICE LIST =================
+# ================= PRICE LISTS =================
 
-PRICE_TEXT = """💎 Diamond ဈေးနှုန်းများ
+PRICE_TEXT_MYANMAR = """💎 MYANMAR SERVER ဈေးနှုန်းများ
 
 ❗️Minimum order = 55 💎
 
@@ -60,18 +59,50 @@ PRICE_TEXT = """💎 Diamond ဈေးနှုန်းများ
 🎟 Twilight Pass = 35,050 MMK
 """
 
-BASE_PRICES = {
+PRICE_TEXT_SINGAPORE = """💎 SINGAPORE SERVER ဈေးနှုန်းများ
+
+❗️Minimum order = 55 💎
+
+💎55 = 7,750 MMK
+💎86 = 8,250 MMK
+💎165 = 17,250 MMK
+💎172 = 17,950 MMK
+💎257 = 25,250 MMK
+💎275 = 26,750 MMK
+💎343 = 32,950 MMK
+💎565 = 51,750 MMK
+💎706 = 63,950 MMK
+💎2195 = 191,950 MMK
+💎3688 = 320,250 MMK
+💎5532 = 478,850 MMK
+💎9288 = 801,950 MMK
+
+🎟 Weekly Pass 1 = 9,450 MMK
+🎟 Weekly Pass 2 = 16,000 MMK
+🎟 Weekly Pass 3 = 22,550 MMK
+🎟 Twilight Pass = 37,950 MMK
+"""
+
+# --- MYANMAR SERVER PRICING ---
+MYANMAR_BASE_PRICES = {
     55: 4850, 86: 5350, 165: 14350, 172: 15050,
     257: 22350, 275: 23850, 343: 30050,
     565: 48850, 706: 61050, 2195: 189050,
     3688: 317350, 5532: 475950, 9288: 799050
 }
+MYANMAR_PASS_PRICES = {
+    "weekly1": 6550, "weekly2": 13100, "weekly3": 19650, "twilight": 35050
+}
 
-PASS_PRICES = {
-    "weekly1": 6550,
-    "weekly2": 13100,
-    "weekly3": 19650,
-    "twilight": 35050
+# --- SINGAPORE SERVER PRICING ---
+SINGAPORE_BASE_PRICES = {
+    55: 7750, 86: 8250, 165: 17250, 172: 17950,
+    257: 25250, 275: 26750, 343: 32950,
+    565: 51750, 706: 63950, 2195: 191950,
+    3688: 320250, 5532: 478850, 9288: 801950
+}
+SINGAPORE_PASS_PRICES = {
+    "weekly1": 9450, "weekly2": 16000, "weekly3": 22550, "twilight": 37950
 }
 
 user_data = {}
@@ -87,7 +118,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not shop_open():
-        await update.message.reply_text("🔒 ဆိုင်ပိတ်နေပါပြီ။\n🕒 ဆိုင်ဖွင့်ချိန်ကတော့ (11:00 - 19:30) ဖြစ်ပါတယ်နော်။")
+        await update.message.reply_text("🔒 ဆိုင်ပိတ်နေပါပြီ။\n🕒 ဆိုင်ဖွင့်ချိန်ကတော့ မနက် ၁၁ နာရီကနေ ည ၇ခွဲ ဖြစ်ပါတယ်။")
         return
 
     uid = update.effective_chat.id
@@ -115,9 +146,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         data["state"] = STATE_GET_SERVER
 
         keyboard = [
-            [InlineKeyboardButton("🇲🇲 Myanmar", callback_data=f"mm_{uid}")],
-            [InlineKeyboardButton("🇸🇬 Singapore", callback_data=f"sg_{uid}")],
-            [InlineKeyboardButton("🚫 Ban", callback_data=f"ban_{uid}")]
+            [InlineKeyboardButton("🇲🇲 MYANMAR", callback_data=f"MYANMAR_{uid}")],
+            [InlineKeyboardButton("🇸🇬 SINGAPORE", callback_data=f"SINGAPORE_{uid}")],
+            [InlineKeyboardButton("🚫 BAN", callback_data=f"BAN_{uid}")]
         ]
 
         await context.bot.send_message(
@@ -136,7 +167,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text.lower().strip().replace(" ", "")
 
         if "server" not in data:
-            await update.message.reply_text("❌ စနစ်ပိုင်းဆိုင်ရာ မှားယွင်းမှုရှိသွားလို့ /start ကို ပြန်နှိပ်ပေးပါ။")
+            await update.message.reply_text("❌ သင့် server ကိုရှာမတွေ့ပါ /start ကို ပြန်နှိပ်ပေးပါ။")
             data["state"] = STATE_IDLE
             return
 
@@ -156,19 +187,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 value = text
 
         price = None
+        server_choice = data["server"]
 
-        if isinstance(value, int) and value in BASE_PRICES:
-            price = BASE_PRICES[value]
-        elif isinstance(value, str) and value in PASS_PRICES:
-            price = PASS_PRICES[value]
+        # ဆာဗာအလိုက် သီးသန့်ခွဲထုတ်ထားသော ဈေးနှုန်း List ထဲကနေ တိုက်ရိုက်ဆွဲယူခြင်း
+        if server_choice == "SINGAPORE":
+            if isinstance(value, int) and value in SINGAPORE_BASE_PRICES:
+                price = SINGAPORE_BASE_PRICES[value]
+            elif isinstance(value, str) and value in SINGAPORE_PASS_PRICES:
+                price = SINGAPORE_PASS_PRICES[value]
+        else: # MYANMAR
+            if isinstance(value, int) and value in MYANMAR_BASE_PRICES:
+                price = MYANMAR_BASE_PRICES[value]
+            elif isinstance(value, str) and value in MYANMAR_PASS_PRICES:
+                price = MYANMAR_PASS_PRICES[value]
 
         if price is None:
             await update.message.reply_text("❌ ဝယ်ယူလိုတဲ့ ပမာဏ သို့မဟုတ် အမျိုးအစား မှားယွင်းနေလို့ သေချာပြန်ရိုက်ပေးပါနော်။")
             return
-
-        # Singapore Server ဖြစ်ပါက ဈေးနှုန်းကို ၂၉၀၀ ကျပ် တခါတည်းပေါင်းထည့်ပေးခြင်း
-        if data["server"] == "sg":
-            price += SG_EXTRA
 
         display_item = value
         if value == "weekly1":
@@ -188,7 +223,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(
             f"🔍 အော်ဒါအချက်အလက်ကို ပြန်စစ်ပေးပါ။\n\n"
-            f"• ရွေးချယ်ထားသော Server: {data['server'].upper()}\n"
+            f"• ရွေးချယ်ထားသော ဆာဗာ: {server_choice}\n"
             f"• ဝယ်ယူမည့်အမျိုးအစား: {display_item}\n"
             f"• ကျသင့်ငွေ: {price:,} MMK\n\n"
             f"👉 အတည်ပြုပြီး ဝယ်ယူမယ်ဆိုရင် YES ဟု စာလုံးကြီးဖြင့် ရိုက်ပို့ပေးပါနော်။"
@@ -213,10 +248,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         data["state"] = STATE_WAIT_PAYMENT
         await update.message.reply_text(
-            f"💳 ငွေပေးချေရမယ့် အကောင့်အချက်အလက်များ\n\n"
+            f"💳 Ngwe pay jya r m_al a-kaut a-chat a-lak myar\n\n"
             f"• KBZPay: {KBZPAY}\n"
             f"• WavePay: {WAVEPAY}\n\n"
-            f"📸 ငွေလွှဲပြီးသွားရင် ဖြတ်ပိုင်း (Screenshot) လေးကို ဒီမှာ ပို့ပေးခဲ့ပါနော်။"
+            f"📸 Ngwe hlwel pee thwar yin phat pine (Screenshot) lay ko de ma pot pay khat par naw."
         )
         return
 
@@ -233,12 +268,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             ADMIN_ID,
-            f"💰 Ngwe hlwel phat pine a thit\nUSER ID: {uid}\nID: {data.get('id')}\nServer: {data.get('server').upper()}\nပမာဏ: {data.get('amount')}\nကျသင့်ငွေ: {data.get('price'):,} MMK",
+            f"💰 Ngwe hlwel phat pine a thit\nUSER ID: {uid}\nID: {data.get('id')}\nServer: {data.get('server')}\nပမာဏ: {data.get('amount')}\nကျသင့်ငွေ: {data.get('price'):,} MMK",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
         await context.bot.forward_message(ADMIN_ID, uid, update.message.message_id)
-        await update.message.reply_text("✨ ငွေလွှဲဖြတ်ပိုင်း လက်ခံရရှိပါပြီ။\nAdmin က စစ်ဆေးပြီးတာနဲ့ Diamond ချက်ချင်းထည့်သွင်းပေးသွားမှာမို့ ခေတ္တစောင့်ပေးပါနော်။")
+        await update.message.reply_text("✨ Ngwe hlwel phat pine lak khan ya she par pre.\nAdmin ka sit say pee tar nae Diamond chat chin htal thwin pay thwar mar mo khatt saung pay par naw.")
         
         data["state"] = STATE_IDLE
         return
@@ -255,18 +290,21 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data = get_user(uid)
 
-    if action == "ban":
-        await context.bot.send_message(uid, "❌ စည်းကမ်းချက်များနှင့် မကိုက်ညီလို့ အော်ဒါကို ငြင်းပယ်ထားပါတယ်။")
+    if action == "BAN":
+        await context.bot.send_message(uid, "❌ Ban server ဖြစ်လို့ အော်ဒါကို ငြင်းပယ်ထားပါတယ်။")
         data["state"] = STATE_IDLE
         return
 
     data["server"] = action
     data["state"] = STATE_GET_AMOUNT
 
+    # ဆာဗာအလိုက် သီးသန့်ခွဲထားတဲ့ ဈေးနှုန်း Text ကို ထုတ်ပြပေးခြင်း
+    price_text_to_show = PRICE_TEXT_SINGAPORE if action == "SINGAPORE" else PRICE_TEXT_MYANMAR
+
     await context.bot.send_message(
         uid,
-        f"🎯 ရွေးချယ်ထားသော Server: {action.upper()}\n\n"
-        f"{PRICE_TEXT}\n"
+        f"🎯 ရွေးချယ်ထားသော ဆာဗာ: {action}\n\n"
+        f"{price_text_to_show}\n"
         f"👉 ဝယ်ယူလိုသည့် ပမာဏကို ရိုက်ထည့်ပေးပါ။\n\n"
         f"💡 [သတိပြုရန်]\n"
         f"Weekly Pass ဝယ်ယူလိုပါက wp 1, wp 2, wp 3 ဟု ရိုက်ထည့်ပေးပါ။\n"
@@ -316,7 +354,7 @@ def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(server_buttons, pattern="^(mm|sg|ban)_"))
+    app.add_handler(CallbackQueryHandler(server_buttons, pattern="^(MYANMAR|SINGAPORE|BAN)_"))
     app.add_handler(CallbackQueryHandler(admin_actions, pattern="^(acc|rej)_"))
     app.add_handler(CallbackQueryHandler(finish, pattern="^fin_"))
     app.add_handler(MessageHandler(filters.TEXT | filters.PHOTO, handle_message))
