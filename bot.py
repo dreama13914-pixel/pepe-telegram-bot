@@ -5,7 +5,7 @@ import pytz
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
-    ConversationHandler, ContextTypes, CallbackQueryHandler, filters
+    ContextTypes, CallbackQueryHandler, filters
 )
 
 # ================= CONFIG =================
@@ -13,7 +13,13 @@ from telegram.ext import (
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-GET_ID, GET_SERVER, GET_AMOUNT, CONFIRM, WAIT_PAYMENT = range(5)
+# Simple custom states
+STATE_IDLE = "IDLE"
+STATE_GET_ID = "GET_ID"
+STATE_GET_SERVER = "GET_SERVER"
+STATE_GET_AMOUNT = "GET_AMOUNT"
+STATE_CONFIRM = "CONFIRM"
+STATE_WAIT_PAYMENT = "WAIT_PAYMENT"
 
 KBZPAY = "09401878226"
 WAVEPAY = "09788599697"
@@ -77,58 +83,135 @@ user_data = {}
 
 def get_user(uid):
     if uid not in user_data:
-        user_data[uid] = {}
+        user_data[uid] = {"state": STATE_IDLE}
     return user_data[uid]
 
 
 # ================= START =================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        return
 
     if not shop_open():
         await update.message.reply_text("🔒 ဆိုင်ပိတ်ထားပါသည်\n🕒 ဖွင့်ချိန် (11:00 - 19:30)")
-        return ConversationHandler.END
+        return
 
     uid = update.effective_chat.id
-    get_user(uid).clear()
+    user_data[uid] = {"state": STATE_GET_ID}
 
     await update.message.reply_text(
         "👋 မင်္ဂလာပါ!\n🎮 Pepe's Diamond Shop မှ ကြိုဆိုပါတယ်\n\n"
         "📌 လူကြီးမင်း၏ Game ID ကို ပို့ပေးပါရန်\n👉 ဥပမာ - Pepe 1600113465 (16740)"
     )
 
-    return GET_ID
 
+# ================= INCOMING MESSAGES ROUTER =================
 
-# ================= GET ID =================
-
-async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        return
 
     uid = update.effective_chat.id
     data = get_user(uid)
+    current_state = data.get("state", STATE_IDLE)
 
-    data["id"] = update.message.text
+    # 1. GET ID STATE
+    if current_state == STATE_GET_ID:
+        data["id"] = update.message.text
+        data["state"] = STATE_GET_SERVER
 
-    keyboard = [
-        [InlineKeyboardButton("🇲🇲 Myanmar", callback_data=f"mm_{uid}")],
-        [InlineKeyboardButton("🇸🇬 Singapore", callback_data=f"sg_{uid}")],
-        [InlineKeyboardButton("🚫 Ban", callback_data=f"ban_{uid}")]
-    ]
+        keyboard = [
+            [InlineKeyboardButton("🇲🇲 Myanmar", callback_data=f"mm_{uid}")],
+            [InlineKeyboardButton("🇸🇬 Singapore", callback_data=f"sg_{uid}")],
+            [InlineKeyboardButton("🚫 Ban", callback_data=f"ban_{uid}")]
+        ]
 
-    await context.bot.send_message(
-        ADMIN_ID,
-        f"🔍 NEW ID CHECK\n{update.message.text}\nUSER: {uid}",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+        await context.bot.send_message(
+            ADMIN_ID,
+            f"🔍 NEW ID CHECK\n{update.message.text}\nUSER: {uid}",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
-    await update.message.reply_text("⏳ Admin မှ စစ်ဆေးပေးနေပါသဖြင့် ခေတ္တစောင့်ဆိုင်းပေးပါရန်...")
-    return GET_SERVER
+        await update.message.reply_text("⏳ Admin မှ စစ်ဆေးပေးနေပါသဖြင့် ခေတ္တစောင့်ဆိုင်းပေးပါရန်...")
+        return
+
+    # 2. GET AMOUNT STATE
+    elif current_state == STATE_GET_AMOUNT:
+        text = update.message.text.lower().strip()
+
+        if "server" not in data:
+            await update.message.reply_text("❌ အဆင်မပြေမှုရှိပါသဖြင့် /start ကို ပြန်နှိပ်ပေးပါရန်")
+            data["state"] = STATE_IDLE
+            return
+
+        try:
+            value = int(text)
+        except:
+            value = text
+
+        price = None
+
+        if isinstance(value, int) and value in BASE_PRICES:
+            price = BASE_PRICES[value]
+        elif isinstance(value, str) and value in PASS_PRICES:
+            price = PASS_PRICES[value]
+
+        if price is None:
+            await update.message.reply_text("❌ ဝယ်ယူလိုသည့်အမျိုးအစား ရှာမတွေ့ပါသဖြင့် ပြန်လည်ရိုက်ထည့်ပေးပါရန်")
+            return
+
+        if data["server"] == "sg":
+            price += SG_EXTRA
+
+        data["amount"] = value
+        data["price"] = price
+        data["state"] = STATE_CONFIRM
+
+        await update.message.reply_text(
+            f"🔍 အော်ဒါအတည်ပြုရန်\nအမျိုးအစား: {value}\nကျသင့်ငွေ: {price} MMK\n\nအတည်ပြုရန် YES ဟု ရိုက်ပို့ပေးပါရန်"
+        )
+        return
+
+    # 3. CONFIRM STATE
+    elif current_state == STATE_CONFIRM:
+        if update.message.text.lower() != "yes":
+            await update.message.reply_text("အတည်ပြုရန် YES ဟု ရိုက်ပို့ပေးရပါမည်")
+            return
+
+        data["state"] = STATE_WAIT_PAYMENT
+        await update.message.reply_text(
+            f"💳 ငွေပေးချေရန် အချက်အလက်\n\nKBZPay: {KBZPAY}\nWavePay: {WAVEPAY}\n\n📸 ငွေလွှဲပြေစာ (Screenshot) ကို ပို့ပေးပါရန်"
+        )
+        return
+
+    # 4. WAIT PAYMENT STATE
+    elif current_state == STATE_WAIT_PAYMENT:
+        if not update.message.photo:
+            await update.message.reply_text("❌ 📸 ငွေလွှဲပြေစာ (Screenshot) ကို ပို့ပေးပါရန်")
+            return
+
+        keyboard = [
+            [InlineKeyboardButton("✅ ACCEPT", callback_data=f"acc_{uid}")],
+            [InlineKeyboardButton("❌ REJECT", callback_data=f"rej_{uid}")]
+        ]
+
+        await context.bot.send_message(
+            ADMIN_ID,
+            "💰 NEW PAYMENT RECEIVED",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+        await context.bot.forward_message(ADMIN_ID, uid, update.message.message_id)
+        await update.message.reply_text("✨ ငွေလွှဲပြေစာ လက်ခံရရှိပါပြီ။ Admin မှ စစ်ဆေးပြီးပါက Diamond ထည့်သွင်းပေးသွားမည်ဖြစ်ပါသည်။")
+        
+        data["state"] = STATE_IDLE
+        return
 
 
-# ================= SERVER =================
+# ================= SERVER CALLBACK (ADMIN) =================
 
 async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     query = update.callback_query
     await query.answer()
 
@@ -137,119 +220,23 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data = get_user(uid)
 
-    conv_handler = None
-    for group in context.application.handlers.values():
-        for handler in group:
-            if isinstance(handler, ConversationHandler):
-                conv_handler = handler
-                break
-        if conv_handler:
-            break
-
     if action == "ban":
         await context.bot.send_message(uid, "❌ Ban server ဖြစ်သဖြင့် လူကြီးမင်း၏ Order ကို ငြင်းပယ်ထားပါသည်")
-        if conv_handler:
-            context.application.conversation_tracker.update_state(conv_handler, (uid, uid), ConversationHandler.END)
+        data["state"] = STATE_IDLE
         return
 
     data["server"] = action
+    data["state"] = STATE_GET_AMOUNT
 
     await context.bot.send_message(
         uid,
         f"🎯 Server: {action.upper()}\n\n{PRICE_TEXT}\n\n💎 ဝယ်ယူလိုသည့် ပမာဏကို ရိုက်ထည့်ပေးပါရန်"
     )
 
-    if conv_handler:
-        context.application.conversation_tracker.update_state(conv_handler, (uid, uid), GET_AMOUNT)
-        
-    return GET_AMOUNT
 
-
-# ================= AMOUNT =================
-
-async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    uid = update.effective_chat.id
-    data = get_user(uid)
-
-    text = update.message.text.lower().strip()
-
-    if "server" not in data:
-        await update.message.reply_text("❌ အဆင်မပြေမှုရှိပါသဖြင့် /start ကို ပြန်နှိပ်ပေးပါရန်")
-        return ConversationHandler.END
-
-    try:
-        value = int(text)
-    except:
-        value = text
-
-    price = None
-
-    if isinstance(value, int) and value in BASE_PRICES:
-        price = BASE_PRICES[value]
-    elif isinstance(value, str) and value in PASS_PRICES:
-        price = PASS_PRICES[value]
-
-    if price is None:
-        await update.message.reply_text("❌ ဝယ်ယူလိုသည့်အမျိုးအစား ရှာမတွေ့ပါသဖြင့် ပြန်လည်ရိုက်ထည့်ပေးပါရန်")
-        return GET_AMOUNT
-
-    if data["server"] == "sg":
-        price += SG_EXTRA
-
-    data["amount"] = value
-    data["price"] = price
-
-    await update.message.reply_text(
-        f"🔍 အော်ဒါအတည်ပြုရန်\nအမျိုးအစား: {value}\nကျသင့်ငွေ: {price} MMK\n\nအတည်ပြုရန် YES ဟု ရိုက်ပို့ပေးပါရန်"
-    )
-
-    return CONFIRM
-
-
-# ================= CONFIRM =================
-
-async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    if update.message.text.lower() != "yes":
-        await update.message.reply_text("အတည်ပြုရန် YES ဟု ရိုက်ပို့ပေးရပါမည်")
-        return CONFIRM
-
-    await update.message.reply_text(
-        f"💳 ငွေပေးချေရန် အချက်အလက်\n\nKBZPay: {KBZPAY}\nWavePay: {WAVEPAY}\n\n📸 Ngwe hlwel pyay sar (Screenshot) ko pot pay par yan"
-    )
-
-    return WAIT_PAYMENT
-
-
-# ================= PAYMENT =================
-
-async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
-    uid = update.effective_chat.id
-
-    keyboard = [
-        [InlineKeyboardButton("✅ ACCEPT", callback_data=f"acc_{uid}")],
-        [InlineKeyboardButton("❌ REJECT", callback_data=f"rej_{uid}")]
-    ]
-
-    await context.bot.send_message(
-        ADMIN_ID,
-        "💰 NEW PAYMENT RECEIVED",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-    await context.bot.forward_message(ADMIN_ID, uid, update.message.message_id)
-    
-    await update.message.reply_text("✨ ငွေလွှဲပြေစာ လက်ခံရရှိပါပြီ။ Admin မှ စစ်ဆေးပြီးပါက Diamond ထည့်သွင်းပေးသွားမည်ဖြစ်ပါသည်။")
-
-    return ConversationHandler.END
-
-
-# ================= ADMIN =================
+# ================= ADMIN ACTIONS CALLBACK =================
 
 async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     query = update.callback_query
     await query.answer()
 
@@ -257,7 +244,7 @@ async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = int(uid)
 
     if action == "rej":
-        await context.bot.send_message(uid, "❌ လူကြီးမင်း ပေးပို့ထားသော Ngwe hlwel pyay sar အဆင်မပြေပါသဖြင့် အော်ဒါကို ငြင်းပယ်ထားပါသည်")
+        await context.bot.send_message(uid, "❌ လူကြီးမင်း ပေးပို့ထားသော ငွေလွှဲပြေစာ အဆင်မပြေပါသဖြင့် အော်ဒါကို ငြင်းပယ်ထားပါသည်")
         return
 
     await context.bot.send_message(uid, "⏳ Diamond များ ထည့်သွင်းပေးနေပါသဖြင့် ခေတ္တစောင့်ဆိုင်းပေးပါရန်...")
@@ -271,10 +258,9 @@ async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ================= FINISH =================
+# ================= FINISH CALLBACK =================
 
 async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
     query = update.callback_query
     await query.answer()
 
@@ -287,25 +273,18 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ================= MAIN =================
 
 def main():
-
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    conv = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
-        states={
-            GET_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_id)],
-            GET_SERVER: [CallbackQueryHandler(server_buttons)], 
-            GET_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_amount)],
-            CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
-            WAIT_PAYMENT: [MessageHandler(filters.PHOTO, payment)],
-        },
-        fallbacks=[CommandHandler("start", start)]
-    )
-
-    app.add_handler(conv)
+    # Commands
+    app.add_handler(CommandHandler("start", start))
     
+    # Inline Button Callbacks
+    app.add_handler(CallbackQueryHandler(server_buttons, pattern="^(mm|sg|ban)_"))
     app.add_handler(CallbackQueryHandler(admin_actions, pattern="^(acc|rej)_"))
     app.add_handler(CallbackQueryHandler(finish, pattern="^fin_"))
+    
+    # Catch-all text and photo handler using our safe custom state router
+    app.add_handler(MessageHandler(filters.TEXT | filters.PHOTO, handle_message))
 
     print("BOT RUNNING 🚀")
     app.run_polling(drop_pending_updates=True)
