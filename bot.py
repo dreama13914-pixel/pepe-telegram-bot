@@ -137,11 +137,13 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data = get_user(uid)
 
-    # Find the main ConversationHandler in the application to update customer state
     conv_handler = None
-    for handler in context.application.handlers[0]:
-        if isinstance(handler, ConversationHandler):
-            conv_handler = handler
+    for group in context.application.handlers.values():
+        for handler in group:
+            if isinstance(handler, ConversationHandler):
+                conv_handler = handler
+                break
+        if conv_handler:
             break
 
     if action == "ban":
@@ -157,9 +159,10 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🎯 Server: {action.upper()}\n\n{PRICE_TEXT}\n\n💎 ဝယ်ယူလိုသည့် ပမာဏကို ရိုက်ထည့်ပေးပါရန်"
     )
 
-    # Manually move the user from GET_SERVER state over to GET_AMOUNT state
     if conv_handler:
         context.application.conversation_tracker.update_state(conv_handler, (uid, uid), GET_AMOUNT)
+        
+    return GET_AMOUNT
 
 
 # ================= AMOUNT =================
@@ -213,7 +216,7 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return CONFIRM
 
     await update.message.reply_text(
-        f"💳 Ngwe pay ryan a chat a lak\n\nKBZPay: {KBZPAY}\nWavePay: {WAVEPAY}\n\n📸 ငွေလွှဲပြေစာ (Screenshot) ကို ပို့ပေးပါရန်"
+        f"💳 ငွေပေးချေရန် အချက်အလက်\n\nKBZPay: {KBZPAY}\nWavePay: {WAVEPAY}\n\n📸 Ngwe hlwel pyay sar (Screenshot) ko pot pay par yan"
     )
 
     return WAIT_PAYMENT
@@ -254,7 +257,7 @@ async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = int(uid)
 
     if action == "rej":
-        await context.bot.send_message(uid, "❌ လူကြီးမင်း ပေးပို့ထားသော ငွေလွှဲပြေစာ အဆင်မပြေပါသဖြင့် အော်ဒါကို ငြင်းပယ်ထားပါသည်")
+        await context.bot.send_message(uid, "❌ လူကြီးမင်း ပေးပို့ထားသော Ngwe hlwel pyay sar အဆင်မပြေပါသဖြင့် အော်ဒါကို ငြင်းပယ်ထားပါသည်")
         return
 
     await context.bot.send_message(uid, "⏳ Diamond များ ထည့်သွင်းပေးနေပါသဖြင့် ခေတ္တစောင့်ဆိုင်းပေးပါရန်...")
@@ -291,7 +294,7 @@ def main():
         entry_points=[CommandHandler("start", start)],
         states={
             GET_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_id)],
-            GET_SERVER: [], # Kept as placeholder state while user waits for Admin interaction
+            GET_SERVER: [CallbackQueryHandler(server_buttons)], 
             GET_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_amount)],
             CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
             WAIT_PAYMENT: [MessageHandler(filters.PHOTO, payment)],
@@ -301,8 +304,6 @@ def main():
 
     app.add_handler(conv)
     
-    # Registering interactive callback handlers globally so Admin commands clear correctly
-    app.add_handler(CallbackQueryHandler(server_buttons, pattern="^(mm|sg|ban)_"))
     app.add_handler(CallbackQueryHandler(admin_actions, pattern="^(acc|rej)_"))
     app.add_handler(CallbackQueryHandler(finish, pattern="^fin_"))
 
