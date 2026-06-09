@@ -208,13 +208,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💳 ငွေပေးချေရမယ့် အကောင့်အချက်အလက်များ\n\n"
             f"• KBZPay: {KBZPAY}\n"
             f"• WavePay: {WAVEPAY}\n\n"
-            f"📸 Ngwe hlwel pee thwar yin phat pine (Screenshot) lay ko de ma pot pay khat par naw."
+            f"📸 ငွေလွှဲပြီးသွားရင် ဖြတ်ပိုင်း (Screenshot) လေးကို ဒီမှာ ပို့ပေးခဲ့ပါနော်။"
         )
         return
 
     elif current_state == STATE_WAIT_PAYMENT:
         if not update.message.photo:
-            await update.message.reply_text("❌ Ngwe hlwel phat pine Screenshot pone pot pay ya mal. Pone lay pyan pot pay par.")
+            await update.message.reply_text("❌ ငွေလွှဲဖြတ်ပိုင်း Screenshot ပုံ ပို့ပေးရပါမယ်။ ပုံလေးပြန်ပို့ပေးပါ။")
             return
 
         keyboard = [
@@ -271,7 +271,7 @@ async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = int(uid)
 
     if action == "rej":
-        await context.bot.send_message(uid, "❌ ပေးပို့ထားတဲ့ Ngwe hlwel phat pine a sin ma pyay lo order ko ngyinn pal htwar par tal. A chat a lak myar pyan sit pay par.")
+        await context.bot.send_message(uid, "❌ ပေးပို့ထားတဲ့ ငွေလွှဲဖြတ်ပိုင်း အဆင်မပြေလို့ အော်ဒါကို ငြင်းပယ်ထားပါတယ်။ အချက်အလက်များ ပြန်လည်စစ်ဆေးပေးပါ။")
         return
 
     await context.bot.send_message(uid, "⏳ ငွေလွှဲပြေစာ စစ်ဆေးပြီးပါပြီ။ Diamond များ ထည့်သွင်းပေးနေပြီမို့ ခေတ္တစောင့်ဆိုင်းပေးပါနော်...")
