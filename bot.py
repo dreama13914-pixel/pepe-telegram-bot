@@ -31,7 +31,7 @@ def shop_open():
 
 # ================= PRICE LIST =================
 
-PRICE_TEXT = """💎 Diamond ဈေးများ
+PRICE_TEXT = """💎 Diamond ဈေးနှုန်းများ
 
 ❗️Minimum order = 55 💎
 
@@ -86,15 +86,15 @@ def get_user(uid):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not shop_open():
-        await update.message.reply_text("🔒 Shop Closed\n🕒 11:00 - 19:30")
+        await update.message.reply_text("🔒 ဆိုင်ပိတ်ထားပါသည်\n🕒 ဖွင့်ချိန် (11:00 - 19:30)")
         return ConversationHandler.END
 
     uid = update.effective_chat.id
     get_user(uid).clear()
 
     await update.message.reply_text(
-        "👋 Hello!\n🎮 Welcome to Pepe's Diamond Shop\n\n"
-        "📌 သင့် Game ID ကိုပို့ပါ\n👉 ဥပမာ - Pepe 1600113465 (16740)"
+        "👋 မင်္ဂလာပါ!\n🎮 Pepe's Diamond Shop မှ ကြိုဆိုပါတယ်\n\n"
+        "📌 လူကြီးမင်း၏ Game ID ကို ပို့ပေးပါရန်\n👉 ဥပမာ - Pepe 1600113465 (16740)"
     )
 
     return GET_ID
@@ -121,7 +121,7 @@ async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-    await update.message.reply_text("⏳ Admin စစ်ဆေးနေပါသည်...")
+    await update.message.reply_text("⏳ Admin မှ စစ်ဆေးပေးနေပါသဖြင့် ခေတ္တစောင့်ဆိုင်းပေးပါရန်...")
     return GET_SERVER
 
 
@@ -138,14 +138,14 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = get_user(uid)
 
     if action == "ban":
-        await context.bot.send_message(uid, "❌ Order rejected")
+        await context.bot.send_message(uid, "❌ Ban server ဖြစ်သဖြင့် လူကြီးမင်း၏ Order ကို ငြင်းပယ်ထားပါသည်")
         return ConversationHandler.END
 
     data["server"] = action
 
     await context.bot.send_message(
         uid,
-        f"🎯 Server: {action.upper()}\n\n{PRICE_TEXT}\n\n💎 Enter amount"
+        f"🎯 Server: {action.upper()}\n\n{PRICE_TEXT}\n\n💎 ဝယ်ယူလိုသည့် ပမာဏကို ရိုက်ထည့်ပေးပါရန်"
     )
 
     return GET_AMOUNT
@@ -161,7 +161,7 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower().strip()
 
     if "server" not in data:
-        await update.message.reply_text("❌ /start again")
+        await update.message.reply_text("❌ အဆင်မပြေမှုရှိပါသဖြင့် /start ကို ပြန်နှိပ်ပေးပါရန်")
         return ConversationHandler.END
 
     try:
@@ -177,7 +177,7 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
         price = PASS_PRICES[value]
 
     if price is None:
-        await update.message.reply_text("❌ Not found")
+        await update.message.reply_text("❌ ဝယ်ယူလိုသည့်အမျိုးအစား ရှာမတွေ့ပါသဖြင့် ပြန်လည်ရိုက်ထည့်ပေးပါရန်")
         return GET_AMOUNT
 
     if data["server"] == "sg":
@@ -187,7 +187,7 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data["price"] = price
 
     await update.message.reply_text(
-        f"🔍 CONFIRM\nItem: {value}\nPrice: {price}\nType YES"
+        f"🔍 အော်ဒါအတည်ပြုရန်\nအမျိုးအစား: {value}\nကျသင့်ငွေ: {price} MMK\n\nအတည်ပြုရန် YES ဟု ရိုက်ပို့ပေးပါရန်"
     )
 
     return CONFIRM
@@ -198,11 +198,11 @@ async def get_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if update.message.text.lower() != "yes":
-        await update.message.reply_text("Type YES")
+        await update.message.reply_text("အတည်ပြုရန် YES ဟု ရိုက်ပို့ပေးရပါမည်")
         return CONFIRM
 
     await update.message.reply_text(
-        f"💳 PAYMENT INFO\nKBZ: {KBZPAY}\nWave: {WAVEPAY}\n📸 Send screenshot"
+        f"💳 ငွေပေးချေရန် အချက်အလက်\n\nKBZPay: {KBZPAY}\nWavePay: {WAVEPAY}\n\n📸 ငွေလွှဲပြေစာ (Screenshot) ကို ပို့ပေးပါရန်"
     )
 
     return WAIT_PAYMENT
@@ -226,6 +226,8 @@ async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await context.bot.forward_message(ADMIN_ID, uid, update.message.message_id)
+    
+    await update.message.reply_text("✨ ငွေလွှဲပြေစာ လက်ခံရရှိပါပြီ။ Admin မှ စစ်ဆေးပြီးပါက Diamond ထည့်သွင်းပေးသွားမည်ဖြစ်ပါသည်။")
 
     return ConversationHandler.END
 
@@ -241,10 +243,10 @@ async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = int(uid)
 
     if action == "rej":
-        await context.bot.send_message(uid, "❌ Payment rejected")
+        await context.bot.send_message(uid, "❌ လူကြီးမင်း ပေးပို့ထားသော ငွေလွှဲပြေစာ အဆင်မပြေပါသဖြင့် အော်ဒါကို ငြင်းပယ်ထားပါသည်")
         return
 
-    await context.bot.send_message(uid, "⏳ Processing diamonds...")
+    await context.bot.send_message(uid, "⏳ Diamond များ ထည့်သွင်းပေးနေပါသဖြင့် ခေတ္တစောင့်ဆိုင်းပေးပါရန်...")
 
     await context.bot.send_message(
         ADMIN_ID,
@@ -265,7 +267,7 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _, uid = query.data.split("_")
     uid = int(uid)
 
-    await context.bot.send_message(uid, "🎉 Diamonds delivered!")
+    await context.bot.send_message(uid, "🎉 Diamond များ ထည့်သွင်းမှု အောင်မြင်ပါပြီ။ အားပေးမှုကို ကျေးဇူးတင်ရှိပါသည်။")
 
 
 # ================= MAIN =================
@@ -278,7 +280,7 @@ def main():
         entry_points=[CommandHandler("start", start)],
         states={
             GET_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_id)],
-            GET_SERVER: [CallbackQueryHandler(server_buttons)],
+            GET_SERVER: [CallbackQueryHandler(server_buttons, pattern="^(mm|sg|ban)_")],
             GET_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_amount)],
             CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
             WAIT_PAYMENT: [MessageHandler(filters.PHOTO, payment)],
