@@ -13,7 +13,6 @@ from telegram.ext import (
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Explicit custom state definitions to replace ConversationHandler
 STATE_IDLE = "IDLE"
 STATE_GET_ID = "GET_ID"
 STATE_GET_SERVER = "GET_SERVER"
@@ -30,8 +29,8 @@ SHOP_TZ = pytz.timezone("Asia/Yangon")
 # ================= SHOP TIME =================
 
 def shop_open():
-    now = datetime.now(SHOP_TZ)
-    minutes = now.hour * 60 + now.minute
+    now_mm = datetime.now(SHOP_TZ)
+    minutes = now_mm.hour * 60 + now_mm.minute
     return 11 * 60 <= minutes <= 19 * 60 + 30
 
 
@@ -75,19 +74,13 @@ PASS_PRICES = {
     "twilight": 35050
 }
 
-# ================= MEMORY =================
-
 user_data = {}
-
-# ================= SAFE GET =================
 
 def get_user(uid):
     if uid not in user_data:
         user_data[uid] = {"state": STATE_IDLE}
     return user_data[uid]
 
-
-# ================= START =================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
@@ -106,8 +99,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ================= INCOMING MESSAGES ROUTER =================
-
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
@@ -116,7 +107,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = get_user(uid)
     current_state = data.get("state", STATE_IDLE)
 
-    # 1. GET ID STATE
     if current_state == STATE_GET_ID:
         if not update.message.text:
             return
@@ -138,7 +128,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⏳ Admin ဘက်က ID စစ်ပေးနေလို့ ခေတ္တစောင့်ဆိုင်းပေးပါနော်...")
         return
 
-    # 2. GET AMOUNT STATE
     elif current_state == STATE_GET_AMOUNT:
         if not update.message.text:
             return
@@ -149,7 +138,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             data["state"] = STATE_IDLE
             return
 
-        # Smart clean-up for variant inputs of passes
         if text in ["wp1", "weeklypass1", "weekly1"]:
             value = "weekly1"
         elif text in ["wp2", "weeklypass2", "weekly2"]:
@@ -178,7 +166,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if data["server"] == "sg":
             price += SG_EXTRA
 
-        # Formatting display text safely for confirmation window
         display_item = value
         if value == "weekly1":
             display_item = "Weekly Pass 1"
@@ -201,12 +188,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # 3. CONFIRM STATE
     elif current_state == STATE_CONFIRM:
         if not update.message.text:
             return
         
-        # If customer types anything other than "YES", cancel and loop back to AMOUNT step
         if update.message.text.lower() != "yes":
             data["state"] = STATE_GET_AMOUNT
             await update.message.reply_text(
@@ -223,14 +208,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💳 ငွေပေးချေရမယ့် အကောင့်အချက်အလက်များ\n\n"
             f"• KBZPay: {KBZPAY}\n"
             f"• WavePay: {WAVEPAY}\n\n"
-            f"📸 ငွေလွှဲပြီးသွားရင် ဖြတ်ပိုင်း (Screenshot) လေးကို ဒီမှာ ပို့ပေးခဲ့ပါနော်။"
+            f"📸 Ngwe hlwel pee thwar yin phat pine (Screenshot) lay ko de ma pot pay khat par naw."
         )
         return
 
-    # 4. WAIT PAYMENT STATE
     elif current_state == STATE_WAIT_PAYMENT:
         if not update.message.photo:
-            await update.message.reply_text("❌ ငွေလွှဲဖြတ်ပိုင်း Screenshot ပုံ ပို့ပေးရပါမယ်။ ပုံလေးပြန်ပို့ပေးပါ။")
+            await update.message.reply_text("❌ Ngwe hlwel phat pine Screenshot pone pot pay ya mal. Pone lay pyan pot pay par.")
             return
 
         keyboard = [
@@ -250,8 +234,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         data["state"] = STATE_IDLE
         return
 
-
-# ================= SERVER CALLBACK (ADMIN ACTION) =================
 
 async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -281,8 +263,6 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ================= ADMIN ACTIONS CALLBACK =================
-
 async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -291,7 +271,7 @@ async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = int(uid)
 
     if action == "rej":
-        await context.bot.send_message(uid, "❌ ပေးပို့ထားတဲ့ ငွေလွှဲဖြတ်ပိုင်း အဆင်မပြေလို့ အော်ဒါကို ငြင်းပယ်ထားပါတယ်။ အချက်အလက်များ ပြန်လည်စစ်ဆေးပေးပါ။")
+        await context.bot.send_message(uid, "❌ ပေးပို့ထားတဲ့ Ngwe hlwel phat pine a sin ma pyay lo order ko ngyinn pal htwar par tal. A chat a lak myar pyan sit pay par.")
         return
 
     await context.bot.send_message(uid, "⏳ ငွေလွှဲပြေစာ စစ်ဆေးပြီးပါပြီ။ Diamond များ ထည့်သွင်းပေးနေပြီမို့ ခေတ္တစောင့်ဆိုင်းပေးပါနော်...")
@@ -305,8 +285,6 @@ async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ================= FINISH CALLBACK =================
-
 async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -317,20 +295,13 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(uid, "🎉 အကောင့်ထဲကို Diamond များ ထည့်သွင်းမှု အောင်မြင်စွာ ပြီးဆုံးပါပြီ!\nPepe's Diamond Shop ကို အားပေးတဲ့အတွက် အထူးပင် ကျေးဇူးတင်ရှိပါတယ်နော်။ 🥰")
 
 
-# ================= MAIN =================
-
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Base operational routes
     app.add_handler(CommandHandler("start", start))
-    
-    # Callback query handlers for internal operations
     app.add_handler(CallbackQueryHandler(server_buttons, pattern="^(mm|sg|ban)_"))
     app.add_handler(CallbackQueryHandler(admin_actions, pattern="^(acc|rej)_"))
     app.add_handler(CallbackQueryHandler(finish, pattern="^fin_"))
-    
-    # Unified custom message router handling all incoming states
     app.add_handler(MessageHandler(filters.TEXT | filters.PHOTO, handle_message))
 
     print("BOT RUNNING 🚀")
