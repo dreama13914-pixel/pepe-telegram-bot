@@ -137,9 +137,18 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data = get_user(uid)
 
+    # Find the main ConversationHandler in the application to update customer state
+    conv_handler = None
+    for handler in context.application.handlers[0]:
+        if isinstance(handler, ConversationHandler):
+            conv_handler = handler
+            break
+
     if action == "ban":
         await context.bot.send_message(uid, "❌ Ban server ဖြစ်သဖြင့် လူကြီးမင်း၏ Order ကို ငြင်းပယ်ထားပါသည်")
-        return ConversationHandler.END
+        if conv_handler:
+            context.application.conversation_tracker.update_state(conv_handler, (uid, uid), ConversationHandler.END)
+        return
 
     data["server"] = action
 
@@ -148,7 +157,9 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🎯 Server: {action.upper()}\n\n{PRICE_TEXT}\n\n💎 ဝယ်ယူလိုသည့် ပမာဏကို ရိုက်ထည့်ပေးပါရန်"
     )
 
-    return GET_AMOUNT
+    # Manually move the user from GET_SERVER state over to GET_AMOUNT state
+    if conv_handler:
+        context.application.conversation_tracker.update_state(conv_handler, (uid, uid), GET_AMOUNT)
 
 
 # ================= AMOUNT =================
@@ -202,7 +213,7 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return CONFIRM
 
     await update.message.reply_text(
-        f"💳 ငွေပေးချေရန် အချက်အလက်\n\nKBZPay: {KBZPAY}\nWavePay: {WAVEPAY}\n\n📸 ငွေလွှဲပြေစာ (Screenshot) ကို ပို့ပေးပါရန်"
+        f"💳 Ngwe pay ryan a chat a lak\n\nKBZPay: {KBZPAY}\nWavePay: {WAVEPAY}\n\n📸 ငွေလွှဲပြေစာ (Screenshot) ကို ပို့ပေးပါရန်"
     )
 
     return WAIT_PAYMENT
@@ -280,7 +291,7 @@ def main():
         entry_points=[CommandHandler("start", start)],
         states={
             GET_ID: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_id)],
-            GET_SERVER: [CallbackQueryHandler(server_buttons, pattern="^(mm|sg|ban)_")],
+            GET_SERVER: [], # Kept as placeholder state while user waits for Admin interaction
             GET_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_amount)],
             CONFIRM: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm)],
             WAIT_PAYMENT: [MessageHandler(filters.PHOTO, payment)],
@@ -289,6 +300,9 @@ def main():
     )
 
     app.add_handler(conv)
+    
+    # Registering interactive callback handlers globally so Admin commands clear correctly
+    app.add_handler(CallbackQueryHandler(server_buttons, pattern="^(mm|sg|ban)_"))
     app.add_handler(CallbackQueryHandler(admin_actions, pattern="^(acc|rej)_"))
     app.add_handler(CallbackQueryHandler(finish, pattern="^fin_"))
 
@@ -298,3 +312,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+```
