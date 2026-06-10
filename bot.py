@@ -1,7 +1,7 @@
 import os
+import json
 from datetime import datetime
 import pytz
-
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
@@ -13,7 +13,6 @@ from telegram.ext import (
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-STATE_IDLE = "IDLE"
 STATE_GET_ID = "GET_ID"
 STATE_GET_SERVER = "GET_SERVER"
 STATE_GET_AMOUNT = "GET_AMOUNT"
@@ -23,19 +22,102 @@ STATE_WAIT_PAYMENT = "WAIT_PAYMENT"
 KBZPAY = "09401878226"
 WAVEPAY = "09788599697"
 
-SHOP_TZ = pytz.timezone("Asia/Yangon")
+user_data = {}
+STATUS_FILE = "server_status.txt"
 
-# ================= SHOP TIME =================
+# ================= SHOP OPENING HOURS CHECK =================
 
-def shop_open():
-    now_mm = datetime.now(SHOP_TZ)
-    minutes = now_mm.hour * 60 + now_mm.minute
-    return 11 * 60 <= minutes <= 19 * 60 + 30
+def is_shop_open():
+    # Set to Myanmar Timezone (UTC+6:30)
+    tz = pytz.timezone('Asia/Yangon')
+    now = datetime.now(tz).time()
+    
+    start_time = datetime.strptime("11:00", "%H:%M").time()
+    end_time = datetime.strptime("19:30", "%H:%M").time()
+    
+    return start_time <= now <= end_time
 
 
-# ================= PRICE LISTS =================
+# ================= SERVER STATUS PERSISTENCE =================
 
-PRICE_TEXT_MYANMAR = """💎 MYANMAR SERVER ဈေးနှုန်းများ
+def load_server_status():
+    if os.path.exists(STATUS_FILE):
+        try:
+            with open(STATUS_FILE, "r") as f:
+                return json.load(f)
+        except:
+            pass
+    # Default all servers to active
+    return {
+        "MYANMAR": True,
+        "SINGAPORE": True,
+        "MALAYSIA": True,
+        "PHILIPPINES": True,
+        "INDONESIA": True
+    }
+
+def save_server_status(status_dict):
+    with open(STATUS_FILE, "w") as f:
+        json.dump(status_dict, f)
+
+# Initialize status map
+server_status = load_server_status()
+
+# ================= BASE MYANMAR PRICES =================
+
+MYANMAR_BASE = {
+    55: 4850,
+    86: 5350,
+    165: 14350,
+    172: 15050,
+    257: 22350,
+    275: 23850,
+    343: 30050,
+    565: 48850,
+    706: 61050,
+    2195: 189050,
+    3688: 317350,
+    5532: 475950,
+    9288: 799050
+}
+
+MYANMAR_PASS = {
+    "weekly1": 6550,
+    "weekly2": 13100,
+    "weekly3": 19650,
+    "twilight": 35050
+}
+
+# ================= SERVER RULES =================
+
+def calc_price(server, item):
+    base = None
+
+    if isinstance(item, int):
+        base = MYANMAR_BASE.get(item)
+    else:
+        base = MYANMAR_PASS.get(item)
+
+    if base is None:
+        return None
+
+    if server == "MYANMAR":
+        return base
+    elif server == "SINGAPORE":
+        return base - 300
+    elif server == "MALAYSIA":
+        return base - 300
+    elif server == "PHILIPPINES":
+        return base + 450
+    elif server == "INDONESIA":
+        return base + 270
+
+    return None
+
+
+# ================= PRICE TEXT =================
+
+PRICE_MYANMAR = """💎 MYANMAR SERVER ဈေးနှုန်းများ
 
 ❗️Minimum order = 55 💎
 
@@ -59,289 +141,299 @@ PRICE_TEXT_MYANMAR = """💎 MYANMAR SERVER ဈေးနှုန်းမျာ
 🎟 Twilight Pass = 35,050 MMK
 """
 
-PRICE_TEXT_SINGAPORE = """💎 SINGAPORE SERVER ဈေးနှုန်းများ
+PRICE_SG = """💎 SINGAPORE / MALAYSIA SERVER ဈေးနှုန်းများ
 
 ❗️Minimum order = 55 💎
 
-💎55 = 7,750 MMK
-💎86 = 8,250 MMK
-💎165 = 17,250 MMK
-💎172 = 17,950 MMK
-💎257 = 25,250 MMK
-💎275 = 26,750 MMK
-💎343 = 32,950 MMK
-💎565 = 51,750 MMK
-💎706 = 63,950 MMK
-💎2195 = 191,950 MMK
-💎3688 = 320,250 MMK
-💎5532 = 478,850 MMK
-💎9288 = 801,950 MMK
-
-🎟 Weekly Pass 1 = 9,450 MMK
-🎟 Weekly Pass 2 = 16,000 MMK
-🎟 Weekly Pass 3 = 22,550 MMK
-🎟 Twilight Pass = 37,950 MMK
+💎55 = 4,550 MMK
+💎86 = 5,050 MMK
+💎165 = 14,050 MMK
+💎172 = 14,750 MMK
+💎257 = 22,050 MMK
+💎275 = 23,550 MMK
+💎343 = 29,750 MMK
+💎565 = 48,550 MMK
+💎706 = 60,750 MMK
+💎2195 = 188,750 MMK
+💎3688 = 316,950 MMK
+💎5532 = 475,650 MMK
+💎9288 = 798,750 MMK
 """
 
-# --- MYANMAR SERVER PRICING ---
-MYANMAR_BASE_PRICES = {
-    55: 4850, 86: 5350, 165: 14350, 172: 15050,
-    257: 22350, 275: 23850, 343: 30050,
-    565: 48850, 706: 61050, 2195: 189050,
-    3688: 317350, 5532: 475950, 9288: 799050
-}
-MYANMAR_PASS_PRICES = {
-    "weekly1": 6550, "weekly2": 13100, "weekly3": 19650, "twilight": 35050
-}
+PRICE_PH = """💎 PHILIPPINES SERVER ဈေးနှုန်းများ
 
-# --- SINGAPORE SERVER PRICING ---
-SINGAPORE_BASE_PRICES = {
-    55: 7750, 86: 8250, 165: 17250, 172: 17950,
-    257: 25250, 275: 26750, 343: 32950,
-    565: 51750, 706: 63950, 2195: 191950,
-    3688: 320250, 5532: 478850, 9288: 801950
-}
-SINGAPORE_PASS_PRICES = {
-    "weekly1": 9450, "weekly2": 16000, "weekly3": 22550, "twilight": 37950
-}
+💎 (Myanmar + 450 MMK)
 
-user_data = {}
+💎55 = 5,300 MMK
+💎86 = 5,800 MMK
+💎165 = 14,800 MMK
+💎172 = 15,500 MMK
+💎257 = 22,800 MMK
+💎275 = 24,300 MMK
+💎343 = 30,500 MMK
+💎565 = 49,300 MMK
+💎706 = 61,500 MMK
+💎2195 = 189,500 MMK
+💎3688 = 317,800 MMK
+💎5532 = 476,400 MMK
+💎9288 = 799,500 MMK
+"""
 
-def get_user(uid):
-    if uid not in user_data:
-        user_data[uid] = {"state": STATE_IDLE}
-    return user_data[uid]
+PRICE_ID = """💎 INDONESIA SERVER ဈေးနှုန်းများ
 
+💎 (Myanmar + 270 MMK)
+
+💎55 = 5,120 MMK
+💎86 = 5,620 MMK
+💎165 = 14,620 MMK
+💎172 = 15,320 MMK
+💎257 = 22,620 MMK
+💎275 = 24,120 MMK
+💎343 = 30,320 MMK
+💎565 = 49,120 MMK
+💎706 = 61,320 MMK
+💎2195 = 189,320 MMK
+💎3688 = 317,620 MMK
+💎5532 = 476,220 MMK
+💎9288 = 799,320 MMK
+"""
+
+# ================= START =================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
-
-    if not shop_open():
-        await update.message.reply_text("🌙 ဆိုင်ပိတ်နေပါပြီ\n🕒 ဆိုင်ဖွင့်ချိန်ကတော့ မနက် ၁၁ နာရီကနေ ည ၇ခွဲ ပဲအထိဖြစ်ပါတယ်။")
-        return
-
     uid = update.effective_chat.id
+    
+    if not is_shop_open():
+        await update.message.reply_text("ယခုအချိန်သည် ဆိုင်ပိတ်ချိန် ဖြစ်ပါသည်။ ဆိုင်ဖွင့်ချိန် (11:00 AM - 7:30 PM) အတွင်း ပြန်လည်အော်ဒါတင်ပေးပါ။")
+        return
+
     user_data[uid] = {"state": STATE_GET_ID}
 
+    keyboard = [
+        [InlineKeyboardButton("MYANMAR", callback_data="server|MYANMAR")],
+        [InlineKeyboardButton("SINGAPORE", callback_data="server|SINGAPORE")],
+        [InlineKeyboardButton("MALAYSIA", callback_data="server|MALAYSIA")],
+        [InlineKeyboardButton("PHILIPPINES", callback_data="server|PHILIPPINES")],
+        [InlineKeyboardButton("INDONESIA", callback_data="server|INDONESIA")]
+    ]
+
     await update.message.reply_text(
-        "👋 မင်္ဂလာပါ!\n🎮 Pepe's Diamond Shop မှ ကြိုဆိုပါတယ်နော်။\n\n"
-        "📌 Diamond ထည့်ပေးရမယ့် Game ID ပို့ပေးပါ။\n👉 ဥပမာ - Pepe 1600113465 (16740)"
+        "ကျေးဇူးပြု၍ Game ID ရိုက်ထည့်ပေးပါ။",
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
+
+# ================= MESSAGE =================
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return
-
     uid = update.effective_chat.id
-    data = get_user(uid)
-    current_state = data.get("state", STATE_IDLE)
+    text = update.message.text.strip()
 
-    # 1. ID လက်ခံခြင်း အဆင့်
-    if current_state == STATE_GET_ID:
-        if not update.message.text:
-            return
-        data["id"] = update.message.text
-        data["state"] = STATE_GET_SERVER
-
-        keyboard = [
-            [InlineKeyboardButton("🇲🇲 MYANMAR", callback_data=f"MYANMAR_{uid}")],
-            [InlineKeyboardButton("🇸🇬 SINGAPORE", callback_data=f"SINGAPORE_{uid}")],
-            [InlineKeyboardButton("🚫 BAN", callback_data=f"BAN_{uid}")]
-        ]
-
-        await context.bot.send_message(
-            ADMIN_ID,
-            f"🔍 ID အသစ် စစ်ဆေးရန်\n{update.message.text}\nUSER ID: {uid}",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
-        await update.message.reply_text("⏳ Admin ဘက်က ID စစ်ပေးနေလို့ ခေတ္တစောင့်ဆိုင်းပေးပါနော်...")
+    if not is_shop_open():
+        await update.message.reply_text("ယခုအချိန်သည် ဆိုင်ပိတ်ချိန် ဖြစ်ပါသည်။ ဆိုင်ဖွင့်ချိန် (11:00 AM - 7:30 PM) အတွင်း ပြန်လည်အော်ဒါတင်ပေးပါ။")
         return
 
-    # 2. ပမာဏ လက်ခံခြင်း အဆင့်
-    elif current_state == STATE_GET_AMOUNT:
-        if not update.message.text:
+    if uid not in user_data:
+        user_data[uid] = {}
+
+    state = user_data[uid].get("state")
+
+    # ---- ID ----
+    if state == STATE_GET_ID:
+        user_data[uid]["id"] = text
+        user_data[uid]["state"] = STATE_GET_SERVER
+
+        await update.message.reply_text("ကျေးဇူးပြု၍ Server ကို ရွေးချယ်ပေးပါ။")
+        return
+
+    # ---- AMOUNT ----
+    if state == STATE_GET_AMOUNT:
+        try:
+            item = int(text)
+        except:
+            item = text.lower()
+
+        server = user_data[uid]["server"]
+        
+        if not server_status.get(server, True):
+            await update.message.reply_text("Ban Server ဖြစ်နေသဖြင့် Diamond ဝယ်လို့မရပါ။")
             return
-        text = update.message.text.lower().strip().replace(" ", "")
 
-        if "server" not in data:
-            await update.message.reply_text("❌ စနစ်ပိုင်းဆိုင်ရာ မှားယွင်းမှုရှိသွားလို့ /start ကို ပြန်နှိပ်ပေးပါ။")
-            data["state"] = STATE_IDLE
-            return
-
-        if text in ["wp1", "weeklypass1", "weekly1", "wp 1", "wp_1"]:
-            value = "weekly1"
-        elif text in ["wp2", "weeklypass2", "weekly2", "wp 2", "wp_2"]:
-            value = "weekly2"
-        elif text in ["wp3", "weeklypass3", "weekly3", "wp 3", "wp_3"]:
-            value = "weekly3"
-        elif text in ["twi", "twilight", "twilightpass"]:
-            value = "twilight"
-        else:
-            try:
-                value = int(text)
-            except:
-                value = text
-
-        price = None
-        server_choice = data["server"]
-
-        if server_choice == "SINGAPORE":
-            if isinstance(value, int) and value in SINGAPORE_BASE_PRICES:
-                price = SINGAPORE_BASE_PRICES[value]
-            elif isinstance(value, str) and value in SINGAPORE_PASS_PRICES:
-                price = SINGAPORE_PASS_PRICES[value]
-        else: # MYANMAR
-            if isinstance(value, int) and value in MYANMAR_BASE_PRICES:
-                price = MYANMAR_BASE_PRICES[value]
-            elif isinstance(value, str) and value in MYANMAR_PASS_PRICES:
-                price = MYANMAR_PASS_PRICES[value]
+        price = calc_price(server, item)
 
         if price is None:
-            await update.message.reply_text("❌ ဝယ်ယူလိုတဲ့ ပမာဏ သို့မဟုတ် အမျိုးအစား မှားယွင်းနေလို့ သေချာပြန်ရိုက်ပေးပါနော်။")
+            await update.message.reply_text("ရိုက်ထည့်ထားသော ပမာဏ မမှန်ကန်ပါ။ ပြန်လည်စစ်ဆေးပေးပါ။")
             return
 
-        display_item = value
-        if value == "weekly1":
-            display_item = "Weekly Pass 1"
-        elif value == "weekly2":
-            display_item = "Weekly Pass 2"
-        elif value == "weekly3":
-            display_item = "Weekly Pass 3"
-        elif value == "twilight":
-            display_item = "Twilight Pass"
-        else:
-            display_item = f"{value} Diamond"
-
-        data["amount"] = value
-        data["price"] = price
-        data["state"] = STATE_CONFIRM
+        user_data[uid]["item"] = item
+        user_data[uid]["price"] = price
+        user_data[uid]["state"] = STATE_CONFIRM
 
         await update.message.reply_text(
-            f"🔍 အော်ဒါအချက်အလက်ကို ပြန်စစ်ပေးပါ။\n\n"
-            f"• ရွေးချယ်ထားသော ဆာဗာ: {server_choice}\n"
-            f"• ဝယ်ယူမည့်အမျိုးအစား: {display_item}\n"
-            f"• ကျသင့်ငွေ: {price:,} MMK\n\n"
-            f"👉 အတည်ပြုပြီး ဝယ်ယူမယ်ဆိုရင် YES ဟု စာလုံးကြီးဖြင့် ရိုက်ပို့ပေးပါနော်။"
+            f"🛒 အော်ဒါအချက်အလက်များကို အတည်ပြုပေးပါ\n\n"
+            f"Item: {item}\n"
+            f"Price: {price:,} MMK\n\n"
+            f"ဝယ်ယူမှုကို အတည်ပြုရန် 'YES' ဟု ရိုက်ထည့်ပေးပါ။"
         )
         return
 
-    # 3. အော်ဒါ အတည်ပြုခြင်း အဆင့် (ဤနေရာရှိ Myanglish များကို မြန်မာစာစစ်စစ်သို့ ပြောင်းလဲထားပါသည်)
-    elif current_state == STATE_CONFIRM:
-        if not update.message.text:
-            return
-        
-        if update.message.text.upper() != "YES":
-            data["state"] = STATE_GET_AMOUNT
-            await update.message.reply_text(
-                "❌ အော်ဒါကို အတည်မပြုခဲ့ပါဘူး။\n"
-                "ဝယ်ယူလိုတဲ့ Diamond ပမာဏ သို့မဟုတ် အမျိုးအစားကို ပြန်လည်ရိုက်ထည့်ပေးပါနော်။\n\n"
-                "💡 [သတိပြုရန်]\n"
-                "Weekly Pass အတွက် wp 1, wp 2, wp 3 ဟု ရိုက်ပေးပါ။\n"
-                "Twilight Pass အတွက် twi ဟု ရိုက်ပေးပါ။"
-            )
+    # ---- CONFIRM ----
+    if state == STATE_CONFIRM:
+        if text.lower() != "yes":
+            await update.message.reply_text("'YES' တစ်မျိုးတည်းသာ ရိုက်ထည့်ပေးရန် လိုအပ်ပါသည်။")
             return
 
-        data["state"] = STATE_WAIT_PAYMENT
+        server = user_data[uid].get("server")
+        if not server_status.get(server, True):
+            await update.message.reply_text("Ban Server ဖြစ်နေသဖြင့် Diamond ဝယ်လို့မရပါ။")
+            return
+
+        user_data[uid]["state"] = STATE_WAIT_PAYMENT
+
         await update.message.reply_text(
-            f"💳 ငွေပေးချေရမည့် အကောင့်အချက်အလက်များ\n\n"
-            f"• KBZPay: {KBZPAY}\n"
-            f"• WavePay: {WAVEPAY}\n\n"
-            f"📸 ငွေလွှဲပြေစာ ဖြတ်ပိုင်း (Screenshot) အား ဤနေရာသို့ ပို့ပေးပါရန်။"
-        )
-        return
-
-    # 4. ငွေလွှဲစောင့်ဆိုင်းခြင်း အဆင့် (ဤနေရာရှိ Myanglish များကိုလည်း မြန်မာစာစစ်စစ်သို့ ပြောင်းလဲထားပါသည်)
-    elif current_state == STATE_WAIT_PAYMENT:
-        if not update.message.photo:
-            await update.message.reply_text("❌ ပြေစာမှားနေပါတယ် Admin ရှီငွေမရောက်ပါ။")
-            return
-
-        keyboard = [
-            [InlineKeyboardButton("✅ ACCEPT", callback_data=f"acc_{uid}")],
-            [InlineKeyboardButton("❌ REJECT", callback_data=f"rej_{uid}")]
-        ]
-
-        await context.bot.send_message(
-            ADMIN_ID,
-            f"💰 ငွေလွှဲဖြတ်ပိုင်းအသစ် ရောက်ရှိလာပါပြီ\nUSER ID: {uid}\nID: {data.get('id')}\nServer: {data.get('server')}\nပမာဏ: {data.get('amount')}\nကျသင့်ငွေ: {data.get('price'):,} MMK",
-            reply_markup=InlineKeyboardMarkup(keyboard)
+            f"💳 ကျေးဇူးပြု၍ အောက်ပါအကောင့်များသို့ Ngwe Pay Mhu ပြုလုပ်ပေးပါ\n\n"
+            f"KBZPay: {KBZPAY}\n"
+            f"WavePay: {WAVEPAY}\n\n"
+            f"ငွေလွှဲပြီးပါက ငွေလွှဲပြေစာ (Screenshot) ကို ပို့ပေးပါ။"
         )
 
-        await context.bot.forward_message(ADMIN_ID, uid, update.message.message_id)
-        await update.message.reply_text("✨ ပြေစာလက်ခံရရှိပါပြီ။\nAdmin စစ်ဆေးပြီးပါက Diamond ထည့်သွင်းပေးသွားမည်ဖြစ်သောကြောင့် ခေတ္တစောင့်ဆိုင်းပေးပါ။")
-        
-        data["state"] = STATE_IDLE
-        return
 
+# ================= SERVER SELECTION =================
 
-# ================= SERVER CALLBACK =================
-
-async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def server_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    action, uid = query.data.split("_")
-    uid = int(uid)
-
-    data = get_user(uid)
-
-    if action == "BAN":
-        await context.bot.send_message(uid, "❌ သင့် server က Ban server ဖြစ်နေပါတယ်။ Diamond ဝယ်ယူလို့မရပါ")
-        data["state"] = STATE_IDLE
+    if not is_shop_open():
+        await query.message.reply_text("ယခုအချိန်သည် ဆိုင်ပိတ်ချိန် ဖြစ်ပါသည်။ ဆိုင်ဖွင့်ချိန် (11:00 AM - 7:30 PM) အတွင်း ပြန်လည်အော်ဒါတင်ပေးပါ။")
         return
 
-    data["server"] = action
-    data["state"] = STATE_GET_AMOUNT
+    _, server = query.data.split("|")
+    uid = query.from_user.id
 
-    price_text_to_show = PRICE_TEXT_SINGAPORE if action == "SINGAPORE" else PRICE_TEXT_MYANMAR
+    if not server_status.get(server, True):
+        await query.message.reply_text("Ban Server ဖြစ်နေသဖြင့် Diamond ဝယ်လို့မရပါ။")
+        return
 
-    await context.bot.send_message(
-        uid,
-        f"🎯 ရွေးချယ်ထားသော ဆာဗာ: {action}\n\n"
-        f"{price_text_to_show}\n"
-        f"👉 ဝယ်ယူလိုသည့် ပမာဏကို ရိုက်ထည့်ပေးပါ။\n\n"
-        f"💡 [သတိပြုရန်]\n"
-        f"Weekly Pass ဝယ်ယူလိုပါက wp 1, wp 2, wp 3 ဟု ရိုက်ထည့်ပေးပါ။\n"
-        f"Twilight Pass ဝယ်ယူလိုပါက twi ဟု ရိုက်ထည့်ပေးပါ။"
+    user_data[uid]["server"] = server
+    user_data[uid]["state"] = STATE_GET_AMOUNT
+
+    if server == "MYANMAR":
+        txt = PRICE_MYANMAR
+    elif server in ["SINGAPORE", "MALAYSIA"]:
+        txt = PRICE_SG
+    elif server == "PHILIPPINES":
+        txt = PRICE_PH
+    else:
+        txt = PRICE_ID
+
+    await query.message.reply_text(
+        txt + "\nကျေးဇူးပြု၍ လိုချင်သော ပမာဏ (Amount) ကို ရိုက်ထည့်ပေးပါ။"
     )
 
 
-# ================= ADMIN ACTIONS CALLBACK =================
+# ================= PAYMENT PROCESSING =================
 
-async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_chat.id
 
-    action, uid = query.data.split("_")
-    uid = int(uid)
+    if not is_shop_open():
+        await update.message.reply_text("ယခုအချိန်သည် ဆိုင်ပိတ်ချိန် ဖြစ်ပါသည်။ ဆိုင်ဖွင့်ချိန် (11:00 AM - 7:30 PM) အတွင်း ပြန်လည်အော်ဒါတင်ပေးပါ။")
+        return
 
-    if action == "rej":
-        await context.bot.send_message(uid, "❌ ပြေစာပို့ထားသော် ငွေမရောက်သောကြောင့် အော်ဒါကို ငြင်းပယ်ပါတယ်။")
+    u_info = user_data.get(uid, {})
+    g_id = u_info.get("id", "Unknown")
+    server = u_info.get("server", "Unknown")
+    item = u_info.get("item", "Unknown")
+    price = u_info.get("price", 0)
 
-    await context.bot.send_message(uid, "⏳ ပြေစာ စစ်ဆေးပြီးပါပြီ။ Diamond များ ထည့်သွင်းပေးနေပြီဖြစ်၍ ခေတ္တစောင့်ဆိုင်းပေးပါ...")
-
-    await context.bot.send_message(
-        ADMIN_ID,
-        f"User {uid} ၏အော်ဒါကို လက်ခံလိုက်ပါပြီ။",
+    await context.bot.send_photo(
+        chat_id=ADMIN_ID,
+        photo=update.message.photo[-1].file_id,
+        caption=(
+            f"📩 **NEW PAYMENT RECEIVED**\n\n"
+            f"👤 User Chat ID: `{uid}`\n"
+            f"🎮 Game ID: `{g_id}`\n"
+            f"🌐 Server: {server}\n"
+            f"💎 Item: {item}\n"
+            f"💰 Price: {price:,} MMK"
+        ),
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🏁 FINISH", callback_data=f"fin_{uid}")]
+            [InlineKeyboardButton("✅ ACCEPT", callback_data=f"acc|{uid}")],
+            [InlineKeyboardButton("❌ REJECT", callback_data=f"rej|{uid}")]
         ])
     )
 
+    await update.message.reply_text("ငွေလွှဲပြေစာ လက်ခံရရှိပါသည်။ Admin မှ စစ်ဆေးနေပါသဖြင့် ခေတ္တစောင့်ဆိုင်းပေးပါ။")
 
-# ================= FINISH CALLBACK =================
 
-async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ================= ADMIN ACTIONS =================
+
+async def admin_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    _, uid = query.data.split("_")
+    action, uid = query.data.split("|")
     uid = int(uid)
 
-    await context.bot.send_message(uid, "အကောင့်ထဲသို့ Diamond များ ထည့်သွင်းမှု အောင်မြင်စွာ ပြီးဆုံးပါပြီ!\nPepe's Diamond Shop ကို အားပေးတဲ့အတွက် အထူးပင် ကျေးဇူးတင်ရှိပါတယ်။ :3")
+    if action == "rej":
+        await context.bot.send_message(
+            uid, 
+            "ငွေလွှဲပြေစာ စစ်ဆေးရတာ အဆင်မပြေလို့ အော်ဒါကို ခေတ္တပယ်ဖျက်ထားပါတယ်။ "
+            "အချက်အလက်တွေ ပြန်စစ်ပြီး Admin ဆီ တိုက်ရိုက် ဆက်သွယ်ပေးပါ။"
+        )
+        await query.edit_message_caption(caption=query.message.caption + "\n\n❌ [REJECTED BY ADMIN]")
+        return
+
+    await context.bot.send_message(
+        uid, 
+        "ငွေလွှဲတာ လက်ခံရရှိပါပြီ။ Diamond တွေကို အကောင့်ထဲ အမြန်ဆုံး ထည့်သွင်းပေးနေပါပြီ။ "
+        "ခေတ္တမျှ စောင့်ဆိုင်းပေးပါ။"
+    )
+    await query.edit_message_caption(caption=query.message.caption + "\n\n✅ [ACCEPTED BY ADMIN]")
+
+
+# ================= ADMIN SERVER TESTING & BAN CONTROL =================
+
+async def server_status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_chat.id
+    if uid != ADMIN_ID:
+        return
+
+    keyboard = []
+    for srv, active in server_status.items():
+        status_label = "🟢 Live" if active else "🔴 BANNED"
+        keyboard.append([
+            InlineKeyboardButton(f"{srv}: {status_label}", callback_data=f"toggle|{srv}")
+        ])
+
+    await update.message.reply_text(
+        "🛠 **Server Status & Ban Manager**\nClick any server button to change its configuration:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def toggle_server_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    uid = query.from_user.id
+    
+    if uid != ADMIN_ID:
+        await query.answer("ခွင့်ပြုချက်မရှိပါ။", show_alert=True)
+        return
+
+    await query.answer()
+    _, server = query.data.split("|")
+    
+    server_status[server] = not server_status.get(server, True)
+    save_server_status(server_status)
+
+    keyboard = []
+    for srv, active in server_status.items():
+        status_label = "🟢 Live" if active else "🔴 BANNED"
+        keyboard.append([
+            InlineKeyboardButton(f"{srv}: {status_label}", callback_data=f"toggle|{srv}")
+        ])
+
+    await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(keyboard))
 
 
 # ================= MAIN =================
@@ -350,10 +442,14 @@ def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(server_buttons, pattern="^(MYANMAR|SINGAPORE|BAN)_"))
-    app.add_handler(CallbackQueryHandler(admin_actions, pattern="^(acc|rej)_"))
-    app.add_handler(CallbackQueryHandler(finish, pattern="^fin_"))
-    app.add_handler(MessageHandler(filters.TEXT | filters.PHOTO, handle_message))
+    app.add_handler(CommandHandler("server_status", server_status_cmd))
+    
+    app.add_handler(CallbackQueryHandler(server_cb, pattern="server\\|"))
+    app.add_handler(CallbackQueryHandler(admin_cb, pattern="^(acc|rej)\\|"))
+    app.add_handler(CallbackQueryHandler(toggle_server_cb, pattern="toggle\\|"))
+    
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.PHOTO, payment))
 
     print("BOT RUNNING 🚀")
     app.run_polling(drop_pending_updates=True)
