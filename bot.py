@@ -118,7 +118,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not shop_open():
-        await update.message.reply_text("🔒 ဆိုင်ပိတ်နေပါပြီ။\n🕒 ဆိုင်ဖွင့်ချိန်ကတော့ မနက် ၁၁ နာရီကနေ ည ၇ခွဲ ဖြစ်ပါတယ်။")
+        await update.message.reply_text("🌙 ဆိုင်ပိတ်နေပါပြီ\n🕒 ဆိုင်ဖွင့်ချိန်ကတော့ မနက် ၁၁ နာရီကနေ ည ၇ခွဲ ပဲအထိဖြစ်ပါတယ်။")
         return
 
     uid = update.effective_chat.id
@@ -160,18 +160,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⏳ Admin ဘက်က ID စစ်ပေးနေလို့ ခေတ္တစောင့်ဆိုင်းပေးပါနော်...")
         return
 
-    # 2. ပမာဏ လက်ခံခြင်း အဆင့် (STATE_GET_AMOUNT)
+    # 2. ပမာဏ လက်ခံခြင်း အဆင့်
     elif current_state == STATE_GET_AMOUNT:
         if not update.message.text:
             return
         text = update.message.text.lower().strip().replace(" ", "")
 
         if "server" not in data:
-            await update.message.reply_text("❌ သင့် server ကိုရှာမတွေ့ပါ /start ကို ပြန်နှိပ်ပေးပါ။")
+            await update.message.reply_text("❌ စနစ်ပိုင်းဆိုင်ရာ မှားယွင်းမှုရှိသွားလို့ /start ကို ပြန်နှိပ်ပေးပါ။")
             data["state"] = STATE_IDLE
             return
 
-        # Pass အမျိုးအစားများကို သတ်မှတ်ချက်အတိုင်း စစ်ဆေးခြင်း
         if text in ["wp1", "weeklypass1", "weekly1", "wp 1", "wp_1"]:
             value = "weekly1"
         elif text in ["wp2", "weeklypass2", "weekly2", "wp 2", "wp_2"]:
@@ -189,7 +188,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         price = None
         server_choice = data["server"]
 
-        # ဆာဗာအလိုက် သီးသန့်ခွဲထုတ်ထားသော ဈေးနှုန်း List ထဲကနေ တိုက်ရိုက်ဆွဲယူခြင်း
         if server_choice == "SINGAPORE":
             if isinstance(value, int) and value in SINGAPORE_BASE_PRICES:
                 price = SINGAPORE_BASE_PRICES[value]
@@ -230,7 +228,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # 3. အော်ဒါ အတည်ပြုခြင်း အဆင့် (STATE_CONFIRM)
+    # 3. အော်ဒါ အတည်ပြုခြင်း အဆင့် (ဤနေရာရှိ Myanglish များကို မြန်မာစာစစ်စစ်သို့ ပြောင်းလဲထားပါသည်)
     elif current_state == STATE_CONFIRM:
         if not update.message.text:
             return
@@ -248,17 +246,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         data["state"] = STATE_WAIT_PAYMENT
         await update.message.reply_text(
-            f"💳 Ngwe pay jya r m_al a-kaut a-chat a-lak myar\n\n"
+            f"💳 ငွေပေးချေရမည့် အကောင့်အချက်အလက်များ\n\n"
             f"• KBZPay: {KBZPAY}\n"
             f"• WavePay: {WAVEPAY}\n\n"
-            f"📸 Ngwe hlwel pee thwar yin phat pine (Screenshot) lay ko de ma pot pay khat par naw."
+            f"📸 ငွေလွှဲပြေစာ ဖြတ်ပိုင်း (Screenshot) အား ဤနေရာသို့ ပို့ပေးပါရန်။"
         )
         return
 
-    # 4. Ngwe lhwl sawnt hsaing jin
+    # 4. ငွေလွှဲစောင့်ဆိုင်းခြင်း အဆင့် (ဤနေရာရှိ Myanglish များကိုလည်း မြန်မာစာစစ်စစ်သို့ ပြောင်းလဲထားပါသည်)
     elif current_state == STATE_WAIT_PAYMENT:
         if not update.message.photo:
-            await update.message.reply_text("❌ Ngwe hlwel phat pine Screenshot pone pot pay ya mal. Pone lay pyan pot pay par.")
+            await update.message.reply_text("❌ ပြေစာမှားနေပါတယ် Admin ရှီငွေမရောက်ပါ။")
             return
 
         keyboard = [
@@ -268,18 +266,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(
             ADMIN_ID,
-            f"💰 Ngwe hlwel phat pine a thit\nUSER ID: {uid}\nID: {data.get('id')}\nServer: {data.get('server')}\nပမာဏ: {data.get('amount')}\nကျသင့်ငွေ: {data.get('price'):,} MMK",
+            f"💰 ငွေလွှဲဖြတ်ပိုင်းအသစ် ရောက်ရှိလာပါပြီ\nUSER ID: {uid}\nID: {data.get('id')}\nServer: {data.get('server')}\nပမာဏ: {data.get('amount')}\nကျသင့်ငွေ: {data.get('price'):,} MMK",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
         await context.bot.forward_message(ADMIN_ID, uid, update.message.message_id)
-        await update.message.reply_text("✨ Ngwe hlwel phat pine lak khan ya she par pre.\nAdmin ka sit say pee tar nae Diamond chat chin htal thwin pay thwar mar mo khatt saung pay par naw.")
+        await update.message.reply_text("✨ ပြေစာလက်ခံရရှိပါပြီ။\nAdmin စစ်ဆေးပြီးပါက Diamond ထည့်သွင်းပေးသွားမည်ဖြစ်သောကြောင့် ခေတ္တစောင့်ဆိုင်းပေးပါ။")
         
         data["state"] = STATE_IDLE
         return
 
 
-# ================= SERVER CALLBACK (ADMIN ACTION) =================
+# ================= SERVER CALLBACK =================
 
 async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -291,14 +289,13 @@ async def server_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = get_user(uid)
 
     if action == "BAN":
-        await context.bot.send_message(uid, "❌ Ban server ဖြစ်လို့ အော်ဒါကို ငြင်းပယ်ထားပါတယ်။")
+        await context.bot.send_message(uid, "❌ သင့် server က Ban server ဖြစ်နေပါတယ်။ Diamond ဝယ်ယူလို့မရပါ")
         data["state"] = STATE_IDLE
         return
 
     data["server"] = action
     data["state"] = STATE_GET_AMOUNT
 
-    # ဆာဗာအလိုက် သီးသန့်ခွဲထားတဲ့ ဈေးနှုန်း Text ကို ထုတ်ပြပေးခြင်း
     price_text_to_show = PRICE_TEXT_SINGAPORE if action == "SINGAPORE" else PRICE_TEXT_MYANMAR
 
     await context.bot.send_message(
@@ -322,14 +319,13 @@ async def admin_actions(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = int(uid)
 
     if action == "rej":
-        await context.bot.send_message(uid, "❌ ပေးပို့ထားတဲ့ ငွေလွှဲဖြတ်ပိုင်း အဆင်မပြေလို့ အော်ဒါကို ငြင်းပယ်ထားပါတယ်။ အချက်အလက်များ ပြန်လည်စစ်ဆေးပေးပါ။")
-        return
+        await context.bot.send_message(uid, "❌ ပြေစာပို့ထားသော် ငွေမရောက်သောကြောင့် အော်ဒါကို ငြင်းပယ်ပါတယ်။")
 
-    await context.bot.send_message(uid, "⏳ ငွေလွှဲပြေစာ စစ်ဆေးပြီးပါပြီ။ Diamond များ ထည့်သွင်းပေးနေပြီမို့ ခေတ္တစောင့်ဆိုင်းပေးပါနော်...")
+    await context.bot.send_message(uid, "⏳ ပြေစာ စစ်ဆေးပြီးပါပြီ။ Diamond များ ထည့်သွင်းပေးနေပြီဖြစ်၍ ခေတ္တစောင့်ဆိုင်းပေးပါ...")
 
     await context.bot.send_message(
         ADMIN_ID,
-        f"User {uid} အော်ဒါကို လက်ခံလိုက်ပါပြီ။",
+        f"User {uid} ၏အော်ဒါကို လက်ခံလိုက်ပါပြီ။",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🏁 FINISH", callback_data=f"fin_{uid}")]
         ])
@@ -345,7 +341,7 @@ async def finish(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _, uid = query.data.split("_")
     uid = int(uid)
 
-    await context.bot.send_message(uid, "🎉 အကောင့်ထဲကို Diamond များ ထည့်သွင်းမှု အောင်မြင်စွာ ပြီးဆုံးပါပြီ!\nPepe's Diamond Shop ကို အားပေးတဲ့အတွက် အထူးပင် ကျေးဇူးတင်ရှိပါတယ်နော်။ 🥰")
+    await context.bot.send_message(uid, "အကောင့်ထဲသို့ Diamond များ ထည့်သွင်းမှု အောင်မြင်စွာ ပြီးဆုံးပါပြီ!\nPepe's Diamond Shop ကို အားပေးတဲ့အတွက် အထူးပင် ကျေးဇူးတင်ရှိပါတယ်။ :3")
 
 
 # ================= MAIN =================
