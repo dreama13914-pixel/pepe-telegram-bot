@@ -20,6 +20,7 @@ STATE_GET_ID = "GET_ID"
 STATE_CONFIRM_ID = "CONFIRM_ID"
 STATE_WAIT_ADMIN_SERVER = "WAIT_ADMIN_SERVER"
 STATE_GET_AMOUNT = "GET_AMOUNT"
+STATE_CONFIRM_AMOUNT = "CONFIRM_AMOUNT"
 STATE_CONFIRM = "CONFIRM"
 STATE_WAIT_PAYMENT = "WAIT_PAYMENT"
 
@@ -96,8 +97,12 @@ MYANMAR_BASE = {
     2195: 189050, 3688: 317350, 5532: 475950, 9288: 799050
 }
 
+# Mapping matches both "wp 1" (with space) and "wp1" (without space) safely
 MYANMAR_PASS = {
-    "wp1": 6550, "wp2": 13100, "wp3": 19650, "twi": 35050
+    "wp1": 6550, "wp 1": 6550,
+    "wp2": 13100, "wp 2": 13100,
+    "wp3": 19650, "wp 3": 19650,
+    "twi": 35050
 }
 
 # ================= SERVER RULES =================
@@ -133,10 +138,10 @@ PRICE_MYANMAR = """🇲🇲 MYANMAR SERVER ဈေးနှုန်းမျာ�
 💎 5532 = 475,950 MMK
 💎 9288 = 799,050 MMK
 
-🎟 Weekly Pass 1 = 6,550 MMK (ရိုက်ရန်ပုံစံ - wp1)
-🎟 Weekly Pass 2 = 13,100 MMK (ရိုက်ရန်ပုံစံ - wp2)
-🎟 Weekly Pass 3 = 19,650 MMK (ရိုက်ရန်ပုံစံ - wp3)
-🎟 Twilight Pass = 35,050 MMK (ရိုက်ရန်ပုံစံ - twi)"""
+🎟 Weekly Pass 1 = 6,550 MMK (ရိုက်ရန်ပုံစံ - Wp 1)
+🎟 Weekly Pass 2 = 13,100 MMK (ရိုက်ရန်ပုံစံ - Wp 2)
+🎟 Weekly Pass 3 = 19,650 MMK (ရိုက်ရန်ပုံစံ - Wp 3)
+🎟 Twilight Pass = 35,050 MMK (ရိုက်ရန်ပုံစံ - Twi)"""
 
 PRICE_SG = """🇸🇬 🇲🇾 SINGAPORE / MALAYSIA SERVER ဈေးနှုန်းများ
 
@@ -223,7 +228,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data[uid]["id"] = text
         user_data[uid]["state"] = STATE_CONFIRM_ID
         
-        # Ask verification button choice to customer directly
         keyboard = [
             [
                 InlineKeyboardButton("YES", callback_data=f"idconf|yes|{uid}"),
@@ -238,30 +242,40 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if state == STATE_GET_AMOUNT:
-        try: item = int(text)
-        except: item = text.lower()
+        try: 
+            item = int(text)
+        except: 
+            # Replaces multiple inside spaces to handle "wp 1" clean mapping safely
+            item = " ".join(text.split()).lower()
 
         chosen_server = user_data[uid].get("server")
-        if not chosen_server:
-            await update.message.reply_text("စနစ်မှားယွင်းမှုဖြစ်ပေါ်သွားပါသည်။ ကျေးဇူးပြု၍ /start ကိုပြန်နှိပ်ပါ။")
-            return
-
         price = calc_price(chosen_server, item)
         if price is None:
             await update.message.reply_text("ရိုက်ထည့်ထားတဲ့ ပမာဏ မမှန်ပါ။ သေချာပြန်စစ်ပြီး ရိုက်ပေးပါ။")
             return
 
         display_item = item
-        if item == "wp1": display_item = "Weekly Pass 1"
-        elif item == "wp2": display_item = "Weekly Pass 2"
-        elif item == "wp3": display_item = "Weekly Pass 3"
+        if item in ["wp1", "wp 1"]: display_item = "Weekly Pass 1"
+        elif item in ["wp2", "wp 2"]: display_item = "Weekly Pass 2"
+        elif item in ["wp3", "wp 3"]: display_item = "Weekly Pass 3"
         elif item == "twi": display_item = "Twilight Pass"
 
-        user_data[uid]["item"] = display_item
-        user_data[uid]["raw_item"] = item
-        user_data[uid]["price"] = price
-        user_data[uid]["state"] = STATE_CONFIRM
-        await update.message.reply_text(f"🛒 အော်ဒါအချက်အလက်တွေကို အတည်ပြုပေးပါ\n\nID: {user_data[uid]['id']}\nServer: {chosen_server}\nItem: {display_item}\nPrice: {price:,} MMK\n\nဝယ်ယူမှုကို အတည်ပြုရင် 'YES' လို့ ရိုက်ထည့်ပေးပါ။")
+        user_data[uid]["temp_item"] = display_item
+        user_data[uid]["temp_raw_item"] = item
+        user_data[uid]["temp_price"] = price
+        user_data[uid]["state"] = STATE_CONFIRM_AMOUNT
+
+        # Amount validation verification buttons
+        amt_keyboard = [
+            [
+                InlineKeyboardButton("YES", callback_data=f"amtconf|yes|{uid}"),
+                InlineKeyboardButton("NO", callback_data=f"amtconf|no|{uid}")
+            ]
+        ]
+        await update.message.reply_text(
+            f"သင်ရွေးချယ်လိုက်တဲ့ ပမာဏက {display_item} ဟုတ်ပါသလား။ သေချာရင် YES နှိပ်ပြီး မှားနေရင် NO နှိပ်ပေးပါ။",
+            reply_markup=InlineKeyboardMarkup(amt_keyboard)
+        )
         return
 
     if state == STATE_CONFIRM:
@@ -275,9 +289,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         user_data[uid]["state"] = STATE_WAIT_PAYMENT
-        await update.message.reply_text(f"💳 အောက်ပါအကောင့်တွေထဲကို Ngwe လွှဲပေးပါ\n\nKBZPay: {KBZPAY}\nWavePay: {WAVEPAY}\n\nငွေလွှဲပြီးရင် Ngwe လွှဲပြေစာ (Screenshot) ကို ပို့ပေးပါ။")
+        await update.message.reply_text(f"💳 အောက်ပါအကောင့်တွေထဲကို ငွေလွှဲပေးပါ\n\nKBZPay: {KBZPAY}\nWavePay: {WAVEPAY}\n\nငွေလွှဲပြီးရင် ငွေလွှဲပြေစာ (Screenshot) ကို ပို့ပေးပါ။")
 
-# ================= CUSTOMER INTERACTIVE ID CONFIRMATION =================
+# ================= CUSTOMER INTERACTIVE CONFIRMATIONS =================
 
 async def customer_id_confirm_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -291,11 +305,9 @@ async def customer_id_confirm_cb(update: Update, context: ContextTypes.DEFAULT_T
         await query.edit_message_text("ID ကို သေချာပြန်စစ်ပြီး ထပ်မံရိုက်ထည့်ပေးပါ။")
         return
         
-    # User clicked YES
     user_data[target_uid]["state"] = STATE_WAIT_ADMIN_SERVER
     await query.edit_message_text("ခဏလောက်စောင့်ပေးပါ။ Admin ဘက်က Server ကို စစ်ဆေးနေပါတယ်။")
     
-    # Notify Admin to select Server directly for this Game ID request
     admin_kb = [
         [InlineKeyboardButton("🇲🇲 MYANMAR", callback_data=f"admsrv|MYANMAR|{target_uid}")],
         [InlineKeyboardButton("🇸🇬 SINGAPORE", callback_data=f"admsrv|SINGAPORE|{target_uid}")],
@@ -310,6 +322,33 @@ async def customer_id_confirm_cb(update: Update, context: ContextTypes.DEFAULT_T
         parse_mode="Markdown"
     )
 
+async def customer_amt_confirm_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    _, choice, target_uid = query.data.split("|")
+    target_uid = int(target_uid)
+
+    if choice == "no":
+        user_data[target_uid]["state"] = STATE_GET_AMOUNT
+        await query.edit_message_text("ပမာဏ (Amount) ကို သေချာပြန်စစ်ပြီး ပြန်ရိုက်ထည့်ပေးပါ။")
+        return
+
+    # Commit values after confirmation
+    user_data[target_uid]["item"] = user_data[target_uid]["temp_item"]
+    user_data[target_uid]["raw_item"] = user_data[target_uid]["temp_raw_item"]
+    user_data[target_uid]["price"] = user_data[target_uid]["temp_price"]
+    user_data[target_uid]["state"] = STATE_CONFIRM
+
+    await query.edit_message_text(
+        f"🛒 အော်ဒါအချက်အလက်တွေကို အတည်ပြုပေးပါ\n\n"
+        f"ID: {user_data[target_uid]['id']}\n"
+        f"Server: {user_data[target_uid]['server']}\n"
+        f"Item: {user_data[target_uid]['item']}\n"
+        f"Price: {user_data[target_uid]['price']:,} MMK\n\n"
+        f"ဝယ်ယူမှုကို အတည်ပြုရင် 'YES' လို့ ရိုက်ထည့်ပေးပါ။"
+    )
+
 # ================= ADMIN SERVER ROUTING SELECTION =================
 
 async def admin_server_select_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -319,7 +358,6 @@ async def admin_server_select_cb(update: Update, context: ContextTypes.DEFAULT_T
     _, server, target_uid = query.data.split("|")
     target_uid = int(target_uid)
     
-    # Check if selected server is currently banned
     if not server_status.get(server, True):
         await query.edit_message_text(f"❌ {server} သည် လက်ရှိတွင် Ban ထားသောကြောင့် စာမပို့လိုက်ပါ။")
         await context.bot.send_message(
@@ -328,7 +366,6 @@ async def admin_server_select_cb(update: Update, context: ContextTypes.DEFAULT_T
         )
         return
         
-    # Server is live, push correct specific price sheet directly to customer
     user_data[target_uid]["server"] = server
     user_data[target_uid]["state"] = STATE_GET_AMOUNT
     
@@ -343,7 +380,7 @@ async def admin_server_select_cb(update: Update, context: ContextTypes.DEFAULT_T
         
     await context.bot.send_message(
         chat_id=target_uid,
-        text=f"{price_sheet}\n\nအထက်ပါဈေးနှုန်းတွေကို ကြည့်ပြီး လိုချင်တဲ့ ပမာဏ (Amount) ဒါမှမဟုတ် Pass အတိုကောက် ကုဒ်တွေကို ရိုက်ထည့်ပေးပါ။\nဥပမာ - 55 သို့မဟုတ် wp1"
+        text=f"{price_sheet}\n\nအထက်ပါဈေးနှုန်းတွေကို ကြည့်ပြီး လိုချင်တဲ့ ပမာဏ (Amount) ဒါမှမဟုတ် Pass အတိုကောက် ကုဒ်တွေကို ရိုက်ထည့်ပေးပါ။\nဥပမာ - 55 သို့မဟုတ် Wp 1"
     )
     await query.edit_message_text(f"✅ {server} ဆာဗာဈေးနှုန်းစာရွက်ကို အသုံးပြုသူထံ ပေးပို့ပြီးပါပြီ။")
 
@@ -367,7 +404,7 @@ async def payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption=f"📩 **NEW PAYMENT RECEIVED**\n\n👤 User Chat ID: `{uid}`\n🎮 Game ID: `{g_id}`\n🌐 Server: {server}\n💎 Item: {item}\n💰 Price: {price:,} MMK",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ ACCEPT", callback_data=f"acc|{uid}")], [InlineKeyboardButton("❌ REJECT", callback_data=f"rej|{uid}")]])
     )
-    await update.message.reply_text("ngweလွှဲပြေစာ ရပါပြီ။ Admin ဘက်က စစ်ဆေးနေလို့ ခဏတော့ စောင့်ပေးပါ။")
+    await update.message.reply_text("ငွေလွှဲပြေစာ ရပါပြီ။ Admin ဘက်က စစ်ဆေးနေလို့ ခဏတော့ စောင့်ပေးပါ။")
 
 # ================= ADMIN ACTIONS =================
 
@@ -379,12 +416,24 @@ async def admin_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = int(uid)
 
     if action == "rej":
-        await context.bot.send_message(uid, "ငွေဝင်မလာသေးလို့ Admin ဘက်က Diamond ထည့်ပေးလို့မရပါ။ Ngwe လွှဲတာ ပြန်စစ်ပြီး Admin ဆီ တိုက်ရိုက် ဆက်သွယ်ပေးပါ။")
+        await context.bot.send_message(uid, "ငွေဝင်မလာသေးလို့ Admin ဘက်က Diamond ထည့်ပေးလို့မရပါ။ ငွေလွှဲတာ ပြန်စစ်ပြီး Admin ဆီ တိုက်ရိုက် ဆက်သွယ်ပေးပါ။")
         await query.edit_message_caption(caption=query.message.caption + "\n\n❌ [REJECTED BY ADMIN]")
         return
 
-    await context.bot.send_message(uid, "ငွေလွှဲတာ လက်ခံရရှိပါပြီ။ Diamond တွေကို အကောင့်ထဲ ချက်ချင်း ထည့်ပေးနေပြီမို့ ခဏပဲ စောင့်ပေးပါ။")
-    await query.edit_message_caption(caption=query.message.caption + "\n\n✅ [ACCEPTED BY ADMIN]")
+    if action == "acc":
+        await context.bot.send_message(uid, "ငွေလက်ခံရရှိပါပြီ။ Diamond ထည့်ပေးဖို့ ခဏလောက်စောင့်ပေးပါ။")
+        
+        finish_kb = [[InlineKeyboardButton("🏁 FINISH", callback_data=f"fin|{uid}")]]
+        await query.edit_message_caption(
+            caption=query.message.caption + "\n\n✅ [ACCEPTED - WAITING TRANSFER]",
+            reply_markup=InlineKeyboardMarkup(finish_kb)
+        )
+        return
+
+    if action == "fin":
+        await context.bot.send_message(uid, "Diamond များ အကောင့်ထဲသို့ ရောက်ရှိသွားပါပြီ။")
+        await query.edit_message_caption(caption=query.message.caption + "\n\n🏁 [FINISHED & DELIVERED]")
+        return
 
 # ================= ADMIN SERVER BAN CONTROL =================
 
@@ -417,8 +466,9 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("server_status", server_status_cmd))
     app.add_handler(CallbackQueryHandler(customer_id_confirm_cb, pattern="^idconf\\|"))
+    app.add_handler(CallbackQueryHandler(customer_amt_confirm_cb, pattern="^amtconf\\|"))
     app.add_handler(CallbackQueryHandler(admin_server_select_cb, pattern="^admsrv\\|"))
-    app.add_handler(CallbackQueryHandler(admin_cb, pattern="^(acc|rej)\\|"))
+    app.add_handler(CallbackQueryHandler(admin_cb, pattern="^(acc|rej|fin)\\|"))
     app.add_handler(CallbackQueryHandler(toggle_server_cb, pattern="toggle\\|"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.PHOTO, payment))
