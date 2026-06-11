@@ -84,7 +84,7 @@ def calc_price(server, item):
     if isinstance(item, int):
         base = MYANMAR_BASE.get(item)
     else:
-        item = item.replace(" ", "").lower()
+        item = str(item).replace(" ", "").lower()
         base = MYANMAR_PASS.get(item)
 
     if base is None:
@@ -194,22 +194,18 @@ PRICE_ID = """💎 INDONESIA SERVER ဈေးနှုန်းများ
 🎟 Starlight Card = 29,770 MMK
 """
 
-# ================= START =================
+# ================= HANDLERS =================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_chat.id
 
     if not is_shop_open():
-        await update.message.reply_text("ဆိုင်ပိတ်ချိန်ပါ။ 11:00 - 7:30")
+        await update.message.reply_text("ဆိုင်ပိတ်ချိန်ပါ")
         return
 
     user_data[uid] = {"state": STATE_GET_ID}
 
-    await update.message.reply_text(
-        "🐸 Welcome!\nGame ID + Zone ID ရိုက်ထည့်ပါ"
-    )
-
-# ================= MESSAGE =================
+    await update.message.reply_text("Game ID + Zone ID ရိုက်ထည့်ပါ")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_chat.id
@@ -261,8 +257,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(kb)
         )
 
-# ================= CALLBACKS =================
-
 async def id_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
@@ -279,14 +273,14 @@ async def id_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     kb = [
         [InlineKeyboardButton("MYANMAR", callback_data=f"admsrv|MYANMAR|{uid}")],
-        [InlineKeyboardButton("SG", callback_data=f"admsrv|SINGAPORE|{uid}")],
-        [InlineKeyboardButton("MY", callback_data=f"admsrv|MALAYSIA|{uid}")],
+        [InlineKeyboardButton("SINGAPORE", callback_data=f"admsrv|SINGAPORE|{uid}")],
+        [InlineKeyboardButton("MALAYSIA", callback_data=f"admsrv|MALAYSIA|{uid}")],
         [InlineKeyboardButton("PH", callback_data=f"admsrv|PHILIPPINES|{uid}")],
         [InlineKeyboardButton("ID", callback_data=f"admsrv|INDONESIA|{uid}")]
     ]
 
     await context.bot.send_message(uid, "Server choose:", reply_markup=InlineKeyboardMarkup(kb))
-    await q.edit_message_text("Server selecting...")
+    await q.edit_message_text("OK")
 
 async def amount_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -303,9 +297,7 @@ async def amount_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data[uid]["item"] = user_data[uid]["temp_item"]
     user_data[uid]["price"] = user_data[uid]["temp_price"]
 
-    await q.edit_message_text(
-        f"Confirmed: {user_data[uid]['item']} = {user_data[uid]['price']:,} MMK"
-    )
+    await q.edit_message_text(f"{user_data[uid]['item']} = {user_data[uid]['price']:,} MMK")
 
 async def admin_server(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -334,7 +326,6 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
     app.add_handler(CallbackQueryHandler(id_confirm, pattern="^idconf\\|"))
     app.add_handler(CallbackQueryHandler(amount_confirm, pattern="^amtconf\\|"))
     app.add_handler(CallbackQueryHandler(admin_server, pattern="^admsrv\\|"))
