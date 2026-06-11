@@ -200,12 +200,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_chat.id
 
     if not is_shop_open():
-        await update.message.reply_text("ဆိုင်ပိတ်ချိန်ပါ")
+        await update.message.reply_text("လက်ရှိအချိန်တွင် ဆိုင်ပိတ်ထားပါသည်။ ဆိုင်ဖွင့်ချိန်သည် မနက် ၁၁ နာရီမှ ညနေ ၇ နာရီခွဲအထိ ဖြစ်ပါသည်။")
         return
 
     user_data[uid] = {"state": STATE_GET_ID}
 
-    await update.message.reply_text("Game ID + Zone ID ရိုက်ထည့်ပါ")
+    await update.message.reply_text("လူကြီးမင်း၏ Game ID နှင့် Zone ID ကို ရိုက်ထည့်ပေးပါ။")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_chat.id
@@ -226,7 +226,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]]
 
         await update.message.reply_text(
-            f"ID: {text} မှန်လား?",
+            f"ရိုက်ထည့်လိုက်သော ID မှာ {text} ဖြစ်ပါသည်။ ထည့်သွင်းထားသော အချက်အလက် မှန်ကန်မှု ရှိပါသလား။",
             reply_markup=InlineKeyboardMarkup(kb)
         )
 
@@ -240,7 +240,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         price = calc_price(server, item)
 
         if price is None:
-            await update.message.reply_text("မှားနေတယ်")
+            await update.message.reply_text("ရိုက်ထည့်လိုက်သော အချက်အလက် မှားယွင်းနေပါသည်။ ကျေးဇူးပြု၍ ပြန်လည်စစ်ဆေးပေးပါ။")
             return
 
         user_data[uid]["temp_item"] = item
@@ -253,7 +253,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]]
 
         await update.message.reply_text(
-            f"{item} = {price:,} MMK",
+            f"{item} အတွက် ကျသင့်ငွေမှာ {price:,} MMK ဖြစ်ပါသည်။ ဝယ်ယူမှုကို အတည်ပြုပါသလား။",
             reply_markup=InlineKeyboardMarkup(kb)
         )
 
@@ -266,7 +266,7 @@ async def id_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if choice == "no":
         user_data[uid]["state"] = STATE_GET_ID
-        await q.edit_message_text("ပြန်ရိုက်ပါ")
+        await q.edit_message_text("ကျေးဇူးပြု၍ Game ID နှင့် Zone ID ကို ပြန်လည်ရိုက်ထည့်ပေးပါ။")
         return
 
     user_data[uid]["state"] = STATE_WAIT_ADMIN_SERVER
@@ -279,8 +279,8 @@ async def id_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("ID", callback_data=f"admsrv|INDONESIA|{uid}")]
     ]
 
-    await context.bot.send_message(uid, "Server choose:", reply_markup=InlineKeyboardMarkup(kb))
-    await q.edit_message_text("OK")
+    await context.bot.send_message(uid, "ကျေးဇူးပြု၍ ဆာဗာအမျိုးအစားကို ရွေးချယ်ပေးပါ။", reply_markup=InlineKeyboardMarkup(kb))
+    await q.edit_message_text("ID ကို အတည်ပြုပြီးပါပြီ။")
 
 async def amount_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -291,13 +291,13 @@ async def amount_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if choice == "no":
         user_data[uid]["state"] = STATE_GET_AMOUNT
-        await q.edit_message_text("ပြန်ရိုက်ပါ")
+        await q.edit_message_text("ကျေးဇူးပြု၍ အမောင့် သို့မဟုတ် ပက်ကေ့ဂျ်အမျိုးအစားကို ပြန်လည်ရိုက်ထည့်ပေးပါ။")
         return
 
     user_data[uid]["item"] = user_data[uid]["temp_item"]
     user_data[uid]["price"] = user_data[uid]["temp_price"]
 
-    await q.edit_message_text(f"{user_data[uid]['item']} = {user_data[uid]['price']:,} MMK")
+    await q.edit_message_text(f"အမောင့် အတည်ပြုချက် အောင်မြင်ပါသည်။\n\nဝယ်ယူသည့်အမျိုးအစား: {user_data[uid]['item']}\nကျသင့်ငွေ: {user_data[uid]['price']:,} MMK")
 
 async def admin_server(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -317,7 +317,8 @@ async def admin_server(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await context.bot.send_message(uid, sheet)
-    await q.edit_message_text("Done")
+    await context.bot.send_message(uid, "ဈေးနှုန်းဇယားကို ကြည့်ရှုပြီး ဝယ်ယူလိုသော Diamond အမောင့် သို့မဟုတ် ပက်ကေ့ဂျ်အမည် (ဥပမာ- wp1, starlight) ကို ရိုက်ထည့်ပေးပါ။")
+    await q.edit_message_text("ဆာဗာ ရွေးချယ်မှု အောင်မြင်ပါသည်။")
 
 # ================= MAIN =================
 
@@ -330,8 +331,20 @@ def main():
     app.add_handler(CallbackQueryHandler(amount_confirm, pattern="^amtconf\\|"))
     app.add_handler(CallbackQueryHandler(admin_server, pattern="^admsrv\\|"))
 
-    print("RUNNING BOT")
-    app.run_polling()
+    PORT = int(os.getenv("PORT", "8000"))
+    RENDER_URL = os.getenv("RENDER_EXTERNAL_URL")
+
+    if RENDER_URL:
+        print(f"RUNNING BOT VIA WEBHOOK ON PORT {PORT}")
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            url_path=BOT_TOKEN,
+            webhook_url=f"{RENDER_URL}/{BOT_TOKEN}"
+        )
+    else:
+        print("RUNNING BOT VIA POLLING (LOCAL SETUP)")
+        app.run_polling()
 
 if __name__ == "__main__":
     main()
