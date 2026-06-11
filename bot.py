@@ -183,7 +183,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_data[uid] = {"state": STATE_GET_ID}
-    await update.message.reply_text("🐸 မင်္ဂလာပါ Pepe's MLBB Diamond Shop မှကြိုဆိုပါသည်။ ဝယ်ယူဖို့အတွက် Game ID နဲ့ Zone ID ကို ရိုက်ထည့်ပေးပါ။\nဥပမာ - Pepe 123456789 (1234)")
+    await update.message.reply_text("🐸 မင်္ဂလာပါ Pepe's MLBB Diamond Shop မှကြိုဆိုပါသည်။ ဝယ်ယူဖို့အတွက် Game ID နဲ့ Zone ID ကို ရိုက်ထည့်ပေးပါ။\nဥပမာ - 123456789 (1234)")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_chat.id
