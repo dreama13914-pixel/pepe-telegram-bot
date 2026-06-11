@@ -3,26 +3,36 @@ import json
 from datetime import datetime
 import pytz
 import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from flask import Flask
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
     ContextTypes, CallbackQueryHandler, filters
 )
 
+# ================= FLASK (REQUIRED FOR RENDER FREE) =================
+
+app_web = Flask(__name__)
+
+@app_web.route("/")
+def home():
+    return "Bot running"
+
+def run_web():
+    port = int(os.getenv("PORT", 10000))
+    app_web.run(host="0.0.0.0", port=port)
+
 # ================= CONFIG =================
 
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-PORT = int(os.getenv("PORT", "10000"))
 
 STATE_GET_ID = "GET_ID"
 STATE_CONFIRM_ID = "CONFIRM_ID"
 STATE_WAIT_ADMIN_SERVER = "WAIT_ADMIN_SERVER"
 STATE_GET_AMOUNT = "GET_AMOUNT"
 STATE_CONFIRM_AMOUNT = "CONFIRM_AMOUNT"
-STATE_CONFIRM = "CONFIRM"
-STATE_WAIT_PAYMENT = "WAIT_PAYMENT"
 
 KBZPAY = "09401878226"
 WAVEPAY = "09788599697"
@@ -50,19 +60,7 @@ def load_server_status():
             pass
     return {"MYANMAR": True, "SINGAPORE": True, "MALAYSIA": True, "PHILIPPINES": True, "INDONESIA": True}
 
-def save_server_status(data):
-    with open(STATUS_FILE, "w") as f:
-        json.dump(data, f)
-
 server_status = load_server_status()
-
-SERVER_FLAGS = {
-    "MYANMAR": "🇲🇲",
-    "SINGAPORE": "🇸🇬",
-    "MALAYSIA": "🇲🇾",
-    "PHILIPPINES": "🇵🇭",
-    "INDONESIA": "🇮🇩"
-}
 
 # ================= PRICING SYSTEM =================
 
@@ -102,7 +100,7 @@ def calc_price(server, item):
 
     return base + adj
 
-# ================= MYANMAR PRICE TEXT (UNCHANGED STYLE) =================
+# ================= SERVER TEXT SHEETS =================
 
 PRICE_MYANMAR = """💎 MYANMAR SERVER ဈေးနှုန်းများ
 
@@ -129,57 +127,106 @@ PRICE_MYANMAR = """💎 MYANMAR SERVER ဈေးနှုန်းများ
 🎟 Starlight Card = 29,300 MMK
 """
 
-# ================= AUTO GENERATE OTHER SERVERS =================
+PRICE_SG_MY = """💎 SINGAPORE & MALAYSIA SERVER ဈေးနှုန်းများ
 
-def build_price(server):
-    adj = BASE_ADJUST[server]
-    flag = SERVER_FLAGS[server]
+❗️Minimum order = 55 💎
 
-    text = f"{flag} {server} SERVER ဈေးနှုန်းများ\n\n❗️Minimum order = 55 💎\n\n"
+💎55 = 7,450 MMK
+💎86 = 7,950 MMK
+💎165 = 16,950 MMK
+💎172 = 17,650 MMK
+💎257 = 24,950 MMK
+💎275 = 26,450 MMK
+💎343 = 32,650 MMK
+💎565 = 51,450 MMK
+💎706 = 63,650 MMK
+💎2195 = 191,650 MMK
+💎3688 = 319,950 MMK
+💎5532 = 478,550 MMK
+💎9288 = 801,650 MMK
 
-    for k, v in MYANMAR_BASE.items():
-        text += f"💎{k} = {v + adj} MMK\n"
-
-    text += f"""
-🎟 Weekly Pass 1 = {MYANMAR_PASS['wp1'] + adj} MMK
-🎟 Weekly Pass 2 = {MYANMAR_PASS['wp2'] + adj} MMK
-🎟 Weekly Pass 3 = {MYANMAR_PASS['wp3'] + adj} MMK
-🎟 Twilight Pass = {MYANMAR_PASS['twi'] + adj} MMK
-🎟 Starlight Card = {MYANMAR_PASS['starlight'] + adj} MMK
+🎟 Weekly Pass 1 = 9,150 MMK
+🎟 Weekly Pass 2 = 15,700 MMK
+🎟 Weekly Pass 3 = 22,250 MMK
+🎟 Twilight Pass = 37,650 MMK
+🎟 Starlight Card = 31,900 MMK
 """
 
-    return text
+PRICE_PH = """💎 PHILIPPINES SERVER ဈေးနှုန်းများ
 
-PRICE_SG = build_price("SINGAPORE")
-PRICE_PH = build_price("PHILIPPINES")
-PRICE_ID = build_price("INDONESIA")
+❗️Minimum order = 55 💎
 
-# ================= START HANDLER =================
+💎55 = 5,300 MMK
+💎86 = 5,800 MMK
+💎165 = 14,800 MMK
+💎172 = 15,500 MMK
+💎257 = 22,800 MMK
+💎275 = 24,300 MMK
+💎343 = 30,500 MMK
+💎565 = 49,300 MMK
+💎706 = 61,500 MMK
+💎2195 = 189,500 MMK
+💎3688 = 317,800 MMK
+💎5532 = 476,400 MMK
+💎9288 = 799,500 MMK
+
+🎟 Weekly Pass 1 = 7,000 MMK
+🎟 Weekly Pass 2 = 13,550 MMK
+🎟 Weekly Pass 3 = 20,100 MMK
+🎟 Twilight Pass = 35,500 MMK
+🎟 Starlight Card = 29,750 MMK
+"""
+
+PRICE_ID = """💎 INDONESIA SERVER ဈေးနှုန်းများ
+
+❗️Minimum order = 55 💎
+
+💎55 = 5,320 MMK
+💎86 = 5,820 MMK
+💎165 = 14,820 MMK
+💎172 = 15,520 MMK
+💎257 = 22,820 MMK
+💎275 = 24,320 MMK
+💎343 = 30,520 MMK
+💎565 = 49,320 MMK
+💎706 = 61,520 MMK
+💎2195 = 189,520 MMK
+💎3688 = 317,820 MMK
+💎5532 = 476,420 MMK
+💎9288 = 799,520 MMK
+
+🎟 Weekly Pass 1 = 7,020 MMK
+🎟 Weekly Pass 2 = 13,570 MMK
+🎟 Weekly Pass 3 = 20,120 MMK
+🎟 Twilight Pass = 35,520 MMK
+🎟 Starlight Card = 29,770 MMK
+"""
+
+# ================= START =================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_chat.id
 
     if not is_shop_open():
-        await update.message.reply_text("ဆိုင်ပိတ်ချိန်ပါ။ 11:00 - 7:30 အတွင်းလာပါ။")
+        await update.message.reply_text("ဆိုင်ပိတ်ချိန်ပါ။ 11:00 - 7:30")
         return
 
     user_data[uid] = {"state": STATE_GET_ID}
 
     await update.message.reply_text(
-        "🐸 Welcome!\n\nGame ID + Zone ID ရိုက်ထည့်ပါ\nExample: 123456789 (1234)"
+        "🐸 Welcome!\nGame ID + Zone ID ရိုက်ထည့်ပါ"
     )
 
-# ================= MESSAGE HANDLER =================
+# ================= MESSAGE =================
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_chat.id
     text = update.message.text.strip()
 
-    if not is_shop_open():
-        await update.message.reply_text("ဆိုင်ပိတ်ချိန်ပါ။")
-        return
+    if uid not in user_data:
+        user_data[uid] = {}
 
-    state = user_data.get(uid, {}).get("state")
+    state = user_data[uid].get("state")
 
     if state == STATE_GET_ID:
         user_data[uid]["id"] = text
@@ -194,19 +241,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"ID: {text} မှန်လား?",
             reply_markup=InlineKeyboardMarkup(kb)
         )
-        return
 
-    if state == STATE_GET_AMOUNT:
+    elif state == STATE_GET_AMOUNT:
         try:
             item = int(text)
         except:
             item = text.lower().replace(" ", "")
 
-        server = user_data[uid]["server"]
+        server = user_data[uid].get("server", "MYANMAR")
         price = calc_price(server, item)
 
         if price is None:
-            await update.message.reply_text("မှားနေတယ် ပြန်ရိုက်ပါ")
+            await update.message.reply_text("မှားနေတယ်")
             return
 
         user_data[uid]["temp_item"] = item
@@ -219,38 +265,85 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]]
 
         await update.message.reply_text(
-            f"Item + Price မှန်လား?\n{item} = {price}",
+            f"{item} = {price:,} MMK",
             reply_markup=InlineKeyboardMarkup(kb)
         )
 
-# ================= SERVER SELECTION =================
+# ================= CALLBACK =================
+
+async def id_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+
+    _, choice, uid = q.data.split("|")
+    uid = int(uid)
+
+    if choice == "no":
+        user_data[uid]["state"] = STATE_GET_ID
+        await q.edit_message_text("ပြန်ရိုက်ပါ")
+        return
+
+    user_data[uid]["state"] = STATE_WAIT_ADMIN_SERVER
+
+    kb = [
+        [InlineKeyboardButton("MYANMAR", callback_data=f"admsrv|MYANMAR|{uid}")],
+        [InlineKeyboardButton("SG", callback_data=f"admsrv|SINGAPORE|{uid}")],
+        [InlineKeyboardButton("MY", callback_data=f"admsrv|MALAYSIA|{uid}")],
+        [InlineKeyboardButton("PH", callback_data=f"admsrv|PHILIPPINES|{uid}")],
+        [InlineKeyboardButton("ID", callback_data=f"admsrv|INDONESIA|{uid}")]
+    ]
+
+    await context.bot.send_message(uid, "Server choose:", reply_markup=InlineKeyboardMarkup(kb))
+    await q.edit_message_text("Server selecting...")
+
+async def amount_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+
+    _, choice, uid = q.data.split("|")
+    uid = int(uid)
+
+    if choice == "no":
+        user_data[uid]["state"] = STATE_GET_AMOUNT
+        await q.edit_message_text("ပြန်ရိုက်ပါ")
+        return
+
+    user_data[uid]["item"] = user_data[uid]["temp_item"]
+    user_data[uid]["price"] = user_data[uid]["temp_price"]
+
+    await q.edit_message_text(f"Confirmed: {user_data[uid]['item']} = {user_data[uid]['price']:,} MMK")
 
 async def admin_server(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+    q = update.callback_query
+    await q.answer()
 
-    _, server, uid = query.data.split("|")
+    _, server, uid = q.data.split("|")
     uid = int(uid)
 
     user_data[uid]["server"] = server
     user_data[uid]["state"] = STATE_GET_AMOUNT
 
     sheet = PRICE_MYANMAR if server == "MYANMAR" else (
-        PRICE_SG if server in ["SINGAPORE", "MALAYSIA"]
+        PRICE_SG_MY if server in ["SINGAPORE", "MALAYSIA"]
         else PRICE_PH if server == "PHILIPPINES"
         else PRICE_ID
     )
 
     await context.bot.send_message(uid, sheet)
-    await query.edit_message_text("Server set done")
+    await q.edit_message_text("Done")
 
-# ================= BOT START =================
+# ================= MAIN =================
 
 def main():
+    threading.Thread(target=run_web, daemon=True).start()
+
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    app.add_handler(CallbackQueryHandler(id_confirm, pattern="^idconf\\|"))
+    app.add_handler(CallbackQueryHandler(amount_confirm, pattern="^amtconf\\|"))
     app.add_handler(CallbackQueryHandler(admin_server, pattern="^admsrv\\|"))
 
     print("RUNNING BOT")
