@@ -2,26 +2,12 @@ import os
 import json
 from datetime import datetime
 import pytz
-import threading
-from flask import Flask
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
     ContextTypes, CallbackQueryHandler, filters
 )
-
-# ================= FLASK (REQUIRED FOR RENDER FREE) =================
-
-app_web = Flask(__name__)
-
-@app_web.route("/")
-def home():
-    return "Bot running"
-
-def run_web():
-    port = int(os.getenv("PORT", 10000))
-    app_web.run(host="0.0.0.0", port=port)
 
 # ================= CONFIG =================
 
@@ -58,7 +44,13 @@ def load_server_status():
                 return json.load(f)
         except:
             pass
-    return {"MYANMAR": True, "SINGAPORE": True, "MALAYSIA": True, "PHILIPPINES": True, "INDONESIA": True}
+    return {
+        "MYANMAR": True,
+        "SINGAPORE": True,
+        "MALAYSIA": True,
+        "PHILIPPINES": True,
+        "INDONESIA": True
+    }
 
 server_status = load_server_status()
 
@@ -100,7 +92,7 @@ def calc_price(server, item):
 
     return base + adj
 
-# ================= SERVER TEXT SHEETS =================
+# ================= PRICE SHEETS =================
 
 PRICE_MYANMAR = """💎 MYANMAR SERVER ဈေးနှုန်းများ
 
@@ -269,7 +261,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(kb)
         )
 
-# ================= CALLBACK =================
+# ================= CALLBACKS =================
 
 async def id_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -311,7 +303,9 @@ async def amount_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data[uid]["item"] = user_data[uid]["temp_item"]
     user_data[uid]["price"] = user_data[uid]["temp_price"]
 
-    await q.edit_message_text(f"Confirmed: {user_data[uid]['item']} = {user_data[uid]['price']:,} MMK")
+    await q.edit_message_text(
+        f"Confirmed: {user_data[uid]['item']} = {user_data[uid]['price']:,} MMK"
+    )
 
 async def admin_server(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -323,8 +317,9 @@ async def admin_server(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data[uid]["server"] = server
     user_data[uid]["state"] = STATE_GET_AMOUNT
 
-    sheet = PRICE_MYANMAR if server == "MYANMAR" else (
-        PRICE_SG_MY if server in ["SINGAPORE", "MALAYSIA"]
+    sheet = (
+        PRICE_MYANMAR if server == "MYANMAR"
+        else PRICE_SG_MY if server in ["SINGAPORE", "MALAYSIA"]
         else PRICE_PH if server == "PHILIPPINES"
         else PRICE_ID
     )
@@ -335,8 +330,6 @@ async def admin_server(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ================= MAIN =================
 
 def main():
-    threading.Thread(target=run_web, daemon=True).start()
-
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
