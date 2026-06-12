@@ -362,6 +362,8 @@ async def amount_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.edit_message_text("အမောင့်ကို အတည်ပြုပြီးပါပြီ။")
     await context.bot.send_message(chat_id=uid, text=pay_text, parse_mode="Markdown")
 
+# ================= FIXED PAYMENT ACTION =================
+
 async def payment_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
@@ -374,20 +376,13 @@ async def payment_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.edit_message_text("Payment ကို ပယ်ဖျက်လိုက်ပါသည်။")
         return
 
-    # --- ADDED USER NOTIFICATION UPON ACCEPTANCE ---
-    await context.bot.send_message(chat_id=uid, text="ငွေလွှဲမှုကို အတည်ပြုလိုက်ပါပြီ။ Admin မှ Diamond ထည့်သွင်းပေးနေပြီဖြစ်၍ ခေတ္တစောင့်ဆိုင်းပေးပါ။")
-
-    kb = [[InlineKeyboardButton("🏁 Finish Topping", callback_data=f"finish|{uid}")]]
-    await q.edit_message_text("ငွေလွှဲမှုကို အတည်ပြုလိုက်ပါပြီ။ Diamond ထည့်သွင်းပြီးပါက အောက်ပါခလုတ်ကို နှိပ်ပါ။", reply_markup=InlineKeyboardMarkup(kb))
-
-async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    uid = int(q.data.split("|")[1])
-
+    # One Click Fix: Instantly complete the order for the user
     user_data[uid] = {}
     await context.bot.send_message(chat_id=uid, text="Diamond ထည့်သွင်းခြင်း လုပ်ငန်းစဉ် အောင်မြင်စွာ ပြီးဆုံးပါပြီ။ အားပေးမှုကို ကျေးဇူးတင်ပါသည်။ နောက်တစ်ကြိမ် ပြန်လည်ဝယ်ယူလိုပါက /start ကို နှိပ်ပေးပါ။")
+    
+    # Clears the admin buttons entirely without prompting a second step
     await q.edit_message_text("အော်ဒါ ပြီးမြောက်ကြောင်း အောင်မြင်စွာ ပို့လိုက်ပါပြီ။")
+
 
 # ================= MAIN =================
 
@@ -403,7 +398,6 @@ def main():
     app.add_handler(CallbackQueryHandler(admin_server, pattern="^admsrv\\|"))
     app.add_handler(CallbackQueryHandler(amount_confirm, pattern="^amtconf\\|"))
     app.add_handler(CallbackQueryHandler(payment_action, pattern="^pay\\|"))
-    app.add_handler(CallbackQueryHandler(finish_order, pattern="^finish\\|"))
 
     PORT = int(os.getenv("PORT", "8000"))
     RENDER_URL = os.getenv("RENDER_EXTERNAL_URL")
