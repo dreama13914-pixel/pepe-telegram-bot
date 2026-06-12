@@ -374,9 +374,10 @@ async def payment_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.edit_message_text("Payment ကို ပယ်ဖျက်လိုက်ပါသည်။")
         return
 
-    # Notify user that their payment is approved and diamonds are pending top-up
+    # User is ONLY told their payment is approved and diamonds are processing.
     await context.bot.send_message(chat_id=uid, text="ငွေလွှဲမှုကို အတည်ပြုလိုက်ပါပြီ။ Admin မှ Diamond ထည့်သွင်းပေးနေပြီဖြစ်၍ ခေတ္တစောင့်ဆိုင်းပေးပါ။")
 
+    # Admin gets the second stage finish button.
     kb = [[InlineKeyboardButton("🏁 Finish Topping", callback_data=f"finish|{uid}")]]
     await q.edit_message_text("ငွေလွှဲမှုကို အတည်ပြုလိုက်ပါပြီ။ Diamond ထည့်သွင်းပြီးပါက အောက်ပါခလုတ်ကို နှိပ်ပါ။", reply_markup=InlineKeyboardMarkup(kb))
 
@@ -385,9 +386,12 @@ async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.answer()
     uid = int(q.data.split("|")[1])
 
-    user_data[uid] = {}
+    # User ONLY gets this final confirmation message when Admin clicks "Finish Topping"
     await context.bot.send_message(chat_id=uid, text="Diamond ထည့်သွင်းခြင်း လုပ်ငန်းစဉ် အောင်မြင်စွာ ပြီးဆုံးပါပြီ။ အားပေးမှုကို ကျေးဇူးတင်ပါသည်။ နောက်တစ်ကြိမ် ပြန်လည်ဝယ်ယူလိုပါက /start ကို နှိပ်ပေးပါ။")
     await q.edit_message_text("အော်ဒါ ပြီးမြောက်ကြောင်း အောင်မြင်စွာ ပို့လိုက်ပါပြီ။")
+    
+    # Session data cleared only AFTER everything is entirely finished
+    user_data[uid] = {}
 
 # ================= MAIN =================
 
