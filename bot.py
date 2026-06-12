@@ -57,7 +57,9 @@ MYANMAR_PASS = {
     "wp2": 13100,
     "wp3": 19650,
     "twi": 35050,
-    "starlight": 29300
+    "starlight": 25700,
+    "starlightcard": 25700,
+    "star": 25700
 }
 
 def calc_price(server, item):
@@ -98,7 +100,7 @@ PRICE_MYANMAR = """💎 MYANMAR SERVER ဈေးနှုန်းများ
 🎟 Weekly Pass 2 = 13,100 MMK
 🎟 Weekly Pass 3 = 19,650 MMK
 🎟 Twilight Pass = 35,050 MMK
-🎟 Starlight Card = 29,300 MMK"""
+🎟 Starlight Card = 25,700 MMK"""
 
 PRICE_SG_MY = """💎 SINGAPORE & MALAYSIA SERVER ဈေးနှုန်းများ
 
@@ -122,7 +124,7 @@ PRICE_SG_MY = """💎 SINGAPORE & MALAYSIA SERVER ဈေးနှုန်းမ
 🎟 Weekly Pass 2 = 15,700 MMK
 🎟 Weekly Pass 3 = 22,250 MMK
 🎟 Twilight Pass = 37,650 MMK
-🎟 Starlight Card = 31,900 MMK"""
+🎟 Starlight Card = 28,300 MMK"""
 
 PRICE_PH = """💎 PHILIPPINES SERVER ဈေးနှုန်းများ
 
@@ -146,7 +148,7 @@ PRICE_PH = """💎 PHILIPPINES SERVER ဈေးနှုန်းများ
 🎟 Weekly Pass 2 = 13,550 MMK
 🎟 Weekly Pass 3 = 20,100 MMK
 🎟 Twilight Pass = 35,500 MMK
-🎟 Starlight Card = 29,750 MMK"""
+🎟 Starlight Card = 26,150 MMK"""
 
 PRICE_ID = """💎 INDONESIA SERVER ဈေးနှုန်းများ
 
@@ -170,7 +172,7 @@ PRICE_ID = """💎 INDONESIA SERVER ဈေးနှုန်းများ
 🎟 Weekly Pass 2 = 13,570 MMK
 🎟 Weekly Pass 3 = 20,120 MMK
 🎟 Twilight Pass = 35,520 MMK
-🎟 Starlight Card = 29,770 MMK"""
+🎟 Starlight Card = 26,170 MMK"""
 
 
 # ================= HANDLERS =================
@@ -205,19 +207,29 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"ရိုက်ထည့်လိုက်သော ID မှာ {text} မှန်ပါသလား।", reply_markup=InlineKeyboardMarkup(kb))
 
     elif state == STATE_GET_AMOUNT:
+        quantity = 1
         try:
             item = int(text)
         except:
-            item = text.lower().replace(" ", "")
+            # Split input to see if there is a trailing number (e.g., "starlight 2" or "star 2")
+            parts = text.split()
+            if len(parts) > 1 and parts[-1].isdigit():
+                quantity = int(parts[-1])
+                item = "".join(parts[:-1]).lower().replace(" ", "")
+            else:
+                item = text.lower().replace(" ", "")
 
         server = user_data[uid].get("server", "MYANMAR")
-        price = calc_price(server, item)
+        single_price = calc_price(server, item)
 
-        if price is None:
+        if single_price is None:
             await update.message.reply_text("မှားယွင်းနေပါသည်။ ပြန်လည်ရိုက်ထည့်ပါ။")
             return
 
-        user_data[uid]["temp_item"] = item
+        price = single_price * quantity
+        display_item = f"{item} x{quantity}" if quantity > 1 else item
+
+        user_data[uid]["temp_item"] = display_item
         user_data[uid]["temp_price"] = price
         user_data[uid]["state"] = STATE_CONFIRM_AMOUNT
 
@@ -225,7 +237,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("YES", callback_data=f"amtconf|yes|{uid}"),
             InlineKeyboardButton("NO", callback_data=f"amtconf|no|{uid}")
         ]]
-        await update.message.reply_text(f"{item} = {price:,} MMK မှန်ပါသလား।", reply_markup=InlineKeyboardMarkup(kb))
+        await update.message.reply_text(f"{display_item} = {price:,} MMK မှန်ပါသလား।", reply_markup=InlineKeyboardMarkup(kb))
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_chat.id
