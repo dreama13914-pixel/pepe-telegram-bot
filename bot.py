@@ -342,7 +342,7 @@ async def amount_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
                f"ကျသင့်ငွေ: {user_data[uid]['price']:,} MMK\n\n" \
                f"📱 KBZPay: `{KBZPAY}`\n" \
                f"📱 WavePay: `{WAVEPAY}`\n\n" \
-               f"ငွေလွှဲပြီးပါက Ngwelwal Phwatpine (Screenshot) ကို ဤနေရာတွင် ပို့ပေးပါ။"
+               f"ငွေလွှဲပြီးပါက ပြေစာ (Screenshot) ကို ဤနေရာတွင် ပို့ပေးပါ။"
                
     await q.edit_message_text("အမောင့်ကို အတည်ပြုပြီးပါပြီ။")
     await context.bot.send_message(chat_id=uid, text=pay_text, parse_mode="Markdown")
