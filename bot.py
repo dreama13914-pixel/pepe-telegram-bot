@@ -374,6 +374,9 @@ async def payment_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.edit_message_text("Payment ကို ပယ်ဖျက်လိုက်ပါသည်။")
         return
 
+    # --- ADDED USER NOTIFICATION UPON ACCEPTANCE ---
+    await context.bot.send_message(chat_id=uid, text="ငွေလွှဲမှုကို အတည်ပြုလိုက်ပါပြီ။ Admin မှ Diamond ထည့်သွင်းပေးနေပြီဖြစ်၍ ခေတ္တစောင့်ဆိုင်းပေးပါ။")
+
     kb = [[InlineKeyboardButton("🏁 Finish Topping", callback_data=f"finish|{uid}")]]
     await q.edit_message_text("ငွေလွှဲမှုကို အတည်ပြုလိုက်ပါပြီ။ Diamond ထည့်သွင်းပြီးပါက အောက်ပါခလုတ်ကို နှိပ်ပါ။", reply_markup=InlineKeyboardMarkup(kb))
 
