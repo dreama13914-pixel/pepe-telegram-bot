@@ -1,5 +1,6 @@
 import os
 import json
+import re
 from datetime import datetime
 import pytz
 
@@ -134,7 +135,7 @@ PRICE_PH = """💎 PHILIPPINES SERVER ဈေးနှုန်းများ
 💎86 = 5,800 MMK
 💎165 = 14,800 MMK
 💎172 = 15,500 MMK
-💎257 = 22,800 MMK
+💎227 = 22,800 MMK
 💎275 = 24,300 MMK
 💎343 = 30,500 MMK
 💎565 = 49,300 MMK
@@ -208,16 +209,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif state == STATE_GET_AMOUNT:
         quantity = 1
+        clean_text = text.lower().replace(" ", "")
+        
         try:
-            item = int(text)
-        except:
-            # Split input to see if there is a trailing number (e.g., "starlight 2" or "star 2")
-            parts = text.split()
-            if len(parts) > 1 and parts[-1].isdigit():
-                quantity = int(parts[-1])
-                item = "".join(parts[:-1]).lower().replace(" ", "")
+            item = int(clean_text)
+        except ValueError:
+            # Smart Regex: Separate letters from trailing numbers (handles both "star 2" and "star2")
+            match = re.match(r"([a-z]+)(\d+)$", clean_text)
+            if match:
+                item = match.group(1)
+                quantity = int(match.group(2))
             else:
-                item = text.lower().replace(" ", "")
+                item = clean_text
 
         server = user_data[uid].get("server", "MYANMAR")
         single_price = calc_price(server, item)
@@ -227,7 +230,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         price = single_price * quantity
-        display_item = f"{item} x{quantity}" if quantity > 1 else item
+        display_item = f"{item.upper()} x{quantity}" if quantity > 1 else item.upper()
 
         user_data[uid]["temp_item"] = display_item
         user_data[uid]["temp_price"] = price
