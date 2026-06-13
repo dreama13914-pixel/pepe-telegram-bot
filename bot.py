@@ -188,7 +188,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         price = PRICE_DATA.get(server, {}).get(clean_key)
         
         if not price:
-            await update.message.reply_text("❌ မှားယွင်းနေပါသည်။ Amount ကို အမှန်အတိုင်း ပြန်ရိုက်ပေးပါ။")
+            await update.message.reply_text("❌ မှားယွင်းနေပါသည်။ သင်လိုချင်သော Amount မရှိပါ၊ Amount ပြန်ရိုက်ပေးပါ။")
             return
 
         user_data[uid]["tmp_item"] = text.upper()
@@ -222,7 +222,7 @@ async def callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Pulling up your exact vertical layout view string block
         sheet = PRICE_SHEETS.get(server, "")
         await q.edit_message_text(
-            f"{sheet}\n\nဝယ်ယူမည့် Amount ကို ရိုက်ထည့်ပါ\n(Normal Diamond အတွက် ပမာဏတစ်ခုတည်း၊ Weekly Pass အတွက် wp 1၊ Twilight Pass အတွက် twi)"
+            f"{sheet}\n\nဝယ်ယူမည့် Amount ကို ရိုက်ထည့်ပါ\n(Normal Diamond အတွက် ပမာဏတစ်ခုတည်း၊ Weekly Pass အတွက် wp 1၊ Twilight Pass အတွက် twi၊ Starlight Card အတွက် star)"
         )
 
     elif data[0] == "conf":
