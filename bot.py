@@ -362,35 +362,41 @@ async def amount_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.edit_message_text("အမောင့်ကို အတည်ပြုပြီးပါပြီ။")
     await context.bot.send_message(chat_id=uid, text=pay_text, parse_mode="Markdown")
 
+# Swapped in your customized payment handling layout
 async def payment_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
+
     _, action, uid = q.data.split("|")
     uid = int(uid)
 
     if action == "reject":
         user_data[uid]["state"] = STATE_GET_ID
-        await context.bot.send_message(chat_id=uid, text="ငွေလွှဲဝင်လာခြင်း မရှိသေးပါ။ /start ကို နှိပ်ပြီး လုပ်ငန်းစဉ်ကို အစမှ ပြန်လည်စတင်ပေးပါ။")
-        await q.edit_message_text("Payment ကို ပယ်ဖျက်လိုက်ပါသည်။")
+        await context.bot.send_message(
+            chat_id=uid,
+            text="ငွေလွှဲဝင်လာခြင်း မရှိသေးပါ။ /start ကို နှိပ်ပြီး ပြန်စတင်ပေးပါ။"
+        )
+        await q.edit_message_text("Payment Rejected")
         return
 
-    # User is ONLY told their payment is approved and diamonds are processing.
-    await context.bot.send_message(chat_id=uid, text="ငွေလွှဲမှုကို အတည်ပြုလိုက်ပါပြီ။ Admin မှ Diamond ထည့်သွင်းပေးနေပြီဖြစ်၍ ၅ မိနစ်လောက်စောင့်ဆိုင်းပေးပါ။")
+    kb = [[InlineKeyboardButton(
+        "💎 Diamonds Added",
+        callback_data=f"finish|{uid}"
+    )]]
 
-    # Admin gets the second stage finish button.
-    kb = [[InlineKeyboardButton("🏁 Finish Topping", callback_data=f"finish|{uid}")]]
-    await q.edit_message_text("ငွေလွှဲမှုကို အတည်ပြုလိုက်ပါပြီ။ Diamond ထည့်သွင်းပြီးပါက အောက်ပါခလုတ်ကို နှိပ်ပါ။", reply_markup=InlineKeyboardMarkup(kb))
+    await q.edit_message_text(
+        "Payment Approved.\nDiamond ထည့်ပြီးပါက အောက်ကခလုတ်ကို နှိပ်ပါ။",
+        reply_markup=InlineKeyboardMarkup(kb)
+    )
 
 async def finish_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     uid = int(q.data.split("|")[1])
 
-    # User ONLY gets this final confirmation message when Admin clicks "Finish Topping"
     await context.bot.send_message(chat_id=uid, text="Diamond ထည့်သွင်းခြင်း လုပ်ငန်းစဉ် အောင်မြင်စွာ ပြီးဆုံးပါပြီ။ အားပေးမှုကို ကျေးဇူးတင်ပါသည်။ နောက်တစ်ကြိမ် ပြန်လည်ဝယ်ယူလိုပါက /start ကို နှိပ်ပေးပါ။")
     await q.edit_message_text("အော်ဒါ ပြီးမြောက်ကြောင်း အောင်မြင်စွာ ပို့လိုက်ပါပြီ။")
     
-    # Session data cleared only AFTER everything is entirely finished
     user_data[uid] = {}
 
 # ================= MAIN =================
