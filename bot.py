@@ -205,7 +205,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("YES", callback_data=f"idconf|yes|{uid}"),
             InlineKeyboardButton("NO", callback_data=f"idconf|no|{uid}")
         ]]
-        await update.message.reply_text(f"ရိုက်ထည့်လိုက်သော ID မှာ {text} မှန်ပါသလား।", reply_markup=InlineKeyboardMarkup(kb))
+        await update.message.reply_text(f"ရိုက်ထည့်လိုက်သော ID မှာ {text} မှန်ပါသလား", reply_markup=InlineKeyboardMarkup(kb))
 
     elif state == STATE_GET_AMOUNT:
         quantity = 1
@@ -240,7 +240,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("YES", callback_data=f"amtconf|yes|{uid}"),
             InlineKeyboardButton("NO", callback_data=f"amtconf|no|{uid}")
         ]]
-        await update.message.reply_text(f"{display_item} = {price:,} MMK မှန်ပါသလား।", reply_markup=InlineKeyboardMarkup(kb))
+        await update.message.reply_text(f"{display_item} = {price:,} MMK မှန်ပါသလား", reply_markup=InlineKeyboardMarkup(kb))
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_chat.id
@@ -375,7 +375,7 @@ async def payment_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # User is ONLY told their payment is approved and diamonds are processing.
-    await context.bot.send_message(chat_id=uid, text="ငွေလွှဲမှုကို အတည်ပြုလိုက်ပါပြီ။ Admin မှ Diamond ထည့်သွင်းပေးနေပြီဖြစ်၍ ခေတ္တစောင့်ဆိုင်းပေးပါ။")
+    await context.bot.send_message(chat_id=uid, text="ငွေလွှဲမှုကို အတည်ပြုလိုက်ပါပြီ။ Admin မှ Diamond ထည့်သွင်းပေးနေပြီဖြစ်၍ ၅ မိနစ်လောက်စောင့်ဆိုင်းပေးပါ။")
 
     # Admin gets the second stage finish button.
     kb = [[InlineKeyboardButton("🏁 Finish Topping", callback_data=f"finish|{uid}")]]
