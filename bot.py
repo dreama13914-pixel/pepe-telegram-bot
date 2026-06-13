@@ -219,7 +219,6 @@ async def callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data[uid]["server"] = server
         user_data[uid]["state"] = STATE_GET_AMOUNT
         
-        # Pulling up your exact vertical layout view string block
         sheet = PRICE_SHEETS.get(server, "")
         await q.edit_message_text(
             f"{sheet}\n\nဝယ်ယူမည့် Amount ကို ရိုက်ထည့်ပါ\n(Normal Diamond အတွက် ပမာဏတစ်ခုတည်း၊ Weekly Pass အတွက် wp 1၊ Twilight Pass အတွက် twi၊ Starlight Card အတွက် star)"
@@ -236,19 +235,62 @@ async def callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pay_txt += "ငွေလွှဲပြီးလျှင် Screenshot ပို့ပေးပါ။"
             await q.edit_message_text(pay_txt)
         else:
-            user_data[uid]["state"] = STATE_GET_ID
-            await q.edit_message_text("အစမှပြန်စပါမည်။ Game ID ကို ပြန်ပို့ပေးပါ။")
+            user_data.pop(uid, None)
+            await q.edit_message_text("❌ ပယ်ဖျက်လိုက်ပါပြီ။ ပြန်လည်စတင်ရန် /start ကို နှိပ်ပါ။")
+
+    # Admin Dashboard Handle Flows
+    elif data[0] == "adm":
+        action = data[1]
+        client_uid = int(data[2])
+        order_details = data[3] if len(data) > 3 else "Order Processed"
+
+        if action == "accept":
+            # Update customer text flow immediately
+            await context.bot.send_message(
+                chat_id=client_uid, 
+                text="⚠️ Adminမှ စစ်ဆေးနေပါပြီ။ ၅ မိနစ်အတွင်း Diamond ထည့်သွင်းပေးပါမည်။"
+            )
+            # Transform Admin controls into Finish execution button
+            next_kb = [[InlineKeyboardButton("Finish 🏁", callback_data=f"adm|finish|{client_uid}|{order_details}")]]
+            await q.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(next_kb))
+
+        elif action == "finish":
+            # Complete customer delivery
+            await context.bot.send_message(
+                chat_id=client_uid, 
+                text="✅ လူကြီးမင်းအကောင့်ထဲသို့ Diamond များ ဝင်သွားပါပြီခင်ဗျာ။ ကျေးဇူးတင်ပါသည်။"
+            )
+            # Tear down buttons from admin logs
+            await q.edit_message_caption(caption=f"🏁 Order Completed & Delivered Successfully!\nDetails: {order_details}")
+
+        elif action == "reject":
+            await context.bot.send_message(
+                chat_id=client_uid, 
+                text="❌ ငွေလွှဲပြေစာ မမှန်ကန်ပါသဖြင့် အော်ဒါကို ငြင်းပယ်လိုက်ပါသည်။ ပြန်လည်စတင်ရန် /start ကိုနှိပ်ပါ။"
+            )
+            await q.edit_message_caption(caption="❌ Order Rejected By Admin.")
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_chat.id
     if uid not in user_data or user_data[uid].get("state") != STATE_WAIT_PAYMENT: return
 
-    # Forward payload down to Admin Chat endpoint
+    # Build unique short identifying token string safely
+    clean_details = f"ID:{user_data[uid]['id']}-{user_data[uid]['item']}"
+    clean_details = re.sub(r'[^a-zA-Z0-9:-]', '', clean_details)[:30]
+
+    # Package admin confirmation control grid
+    adm_kb = [
+        [InlineKeyboardButton("Accept ✅", callback_data=f"adm|accept|{uid}|{clean_details}"),
+         InlineKeyboardButton("Reject ❌", callback_data=f"adm|reject|{uid}|{clean_details}")]
+    ]
+
+    # Dispatch data assets payload out cleanly
     await context.bot.forward_message(ADMIN_ID, uid, update.message.message_id)
-    info = f"📦 Order New!\nID: {user_data[uid]['id']}\nServer: {user_data[uid]['server']}\nItem: {user_data[uid]['item']}\nPrice: {user_data[uid]['price']:,} MMK"
-    await context.bot.send_message(ADMIN_ID, info)
     
-    await update.message.reply_text("✨ ပြီးပါပြီ! Admin မှ စစ်ဆေးပြီးပါက Diamond များ ချက်ချင်း ထည့်သွင်းပေးသွားမည် ဖြစ်ပါသည်။")
+    info = f"📦 New Pending Order!\nID: {user_data[uid]['id']}\nServer: {user_data[uid]['server']}\nItem: {user_data[uid]['item']}\nPrice: {user_data[uid]['price']:,} MMK"
+    await context.bot.send_message(ADMIN_ID, info, reply_markup=InlineKeyboardMarkup(adm_kb))
+    
+    await update.message.reply_text("✨ ပြီးပါပြီ! ငွေလွှဲပြေစာ စစ်ဆေးပြီးပါက Diamond များ ချက်ချင်း ထည့်သွင်းပေးသွားမည် ဖြစ်ပါသည်။")
 
 # ================= RUN =================
 
